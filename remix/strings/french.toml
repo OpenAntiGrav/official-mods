@@ -1,0 +1,6 @@
+# OAG_MENU_REMIX_SUBTITLE has no French yet and shows in English.
+[strings]
+OAG_MENU_REMIX = { text = "REMIX", human = false }
+OAG_REMIX_PAGE_TITLE = { text = "COURSE REMIX", human = false }
+OAG_REMIX_TRACK_TITLE = { text = "TITRE DU CIRCUIT", human = false }
+OAG_REMIX_CRAFT_TITLE = { text = "TITRE DU VAISSEAU", human = false }

@@ -8,6 +8,7 @@ on the game's default mod search path.
 
 | Mod | What it adds |
 | --- | --- |
+| [`remix/`](remix/) (`oag.remix`) | RACE REMIX: a REMIX row under RACEBOX (and a tile on Wipeout 2048's grid) opening a page that races one title's track with another title's craft, from every disc this machine has. Its picks are saved under `[mod_settings."oag.remix"]`. Turned off, the row, the page and the tile are gone and nothing else changes. |
 
 The format is documented in the engine repository: `docs/tools/mods.md`.
 

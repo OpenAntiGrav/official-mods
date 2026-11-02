@@ -1,0 +1,8 @@
+# Race Remix's own text. The rows it shares with the RACE page (MODE, TRACK, TEAM, START)
+# name the engine's ids.
+[strings]
+OAG_MENU_REMIX = { text = "REMIX", human = false }
+OAG_MENU_REMIX_SUBTITLE = { text = "Mix tracks and ships across every title you own", human = false }
+OAG_REMIX_PAGE_TITLE = { text = "RACE REMIX", human = false }
+OAG_REMIX_TRACK_TITLE = { text = "TRACK TITLE", human = false }
+OAG_REMIX_CRAFT_TITLE = { text = "CRAFT TITLE", human = false }

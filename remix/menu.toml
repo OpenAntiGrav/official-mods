@@ -1,0 +1,105 @@
+# RACE REMIX's row under RACEBOX and its page. Every pick is saved under
+# [mod_settings."oag.remix"], so MODE, SPEED CLASS and AI DIFFICULTY here are this page's
+# own, not the RACE page's.
+
+toml-schema = { location = "https://oag.topaxi.com/mods/schemas/v1/mod-menu.tosd", version = "1.0.0" }
+
+# Shown on every machine: with one title, TRACK TITLE and CRAFT TITLE each offer that one
+# and the page is an ordinary custom race.
+[[entry]]
+id = "remix"
+parent = "racebox"
+kind = "submenu"
+label = "REMIX"
+string_id = "OAG_MENU_REMIX"
+target = "remix"
+subtitle = "Mix tracks and ships across every title you own"
+subtitle_string_id = "OAG_MENU_REMIX_SUBTITLE"
+
+[[page]]
+id = "remix"
+title = "RACE REMIX"
+title_string_id = "OAG_REMIX_PAGE_TITLE"
+
+[[page.entry]]
+kind = "choice"
+label = "MODE"
+string_id = "OAG_RACE_MODE"
+setting = "mod.oag.remix.mode"
+values_from = "race_modes"
+
+# Every class any title on this machine authors, not one title's ladder: a mixed grid is
+# not held to one title's rungs. VENOM and ELITE until a pick is saved, the RACE page's
+# own first-run values.
+[[page.entry]]
+kind = "choice"
+label = "SPEED CLASS"
+string_id = "OAG_RACE_SPEED_CLASS"
+setting = "mod.oag.remix.class"
+values_from = { query = "speed_classes_union" }
+default = "venom"
+
+# A class no driver covers races without opponents; the row shows that while it is picked.
+[[page.entry]]
+kind = "choice"
+label = "AI DIFFICULTY"
+string_id = "OAG_RACE_AI_DIFFICULTY"
+setting = "mod.oag.remix.difficulty"
+values_from = { query = "ai_difficulties" }
+default = "elite"
+disabled_by = { setting = "mod.oag.remix.mode", values = ["time_trial", "speed_lap", "zone", "head_to_head"] }
+pinned = [
+    { setting = "mod.oag.remix.class", values = ["superphantom"], shows = "none" },
+]
+
+# A title, then that title's list, on both halves. TRACK lists the circuits of TRACK TITLE
+# (or the custom tracks under CUSTOM, checked against CRAFT TITLE); TEAM is CRAFT TITLE's
+# roster narrowed to the teams that author SPEED CLASS; VARIANT is the variants of TEAM.
+[[page.entry]]
+kind = "choice"
+label = "TRACK TITLE"
+string_id = "OAG_REMIX_TRACK_TITLE"
+setting = "mod.oag.remix.track_title"
+values_from = { query = "titles_available" }
+
+[[page.entry]]
+kind = "choice"
+label = "TRACK"
+string_id = "OAG_RACE_TRACK"
+setting = "mod.oag.remix.track"
+values_from = { query = "tracks_of", of = "mod.oag.remix.track_title", craft_title = "mod.oag.remix.craft_title" }
+
+[[page.entry]]
+kind = "choice"
+label = "CRAFT TITLE"
+string_id = "OAG_REMIX_CRAFT_TITLE"
+setting = "mod.oag.remix.craft_title"
+values_from = "craft_titles"
+
+[[page.entry]]
+kind = "choice"
+label = "TEAM"
+string_id = "OAG_RACE_TEAM"
+setting = "mod.oag.remix.team"
+values_from = { query = "teams_of", of = "mod.oag.remix.craft_title", class = "mod.oag.remix.class" }
+
+[[page.entry]]
+kind = "choice"
+label = "VARIANT"
+string_id = "OAG_RACE_VARIANT"
+setting = "mod.oag.remix.variant"
+values_from = { query = "variants_of", of = "mod.oag.remix.craft_title", team = "mod.oag.remix.team" }
+disabled_by = { setting = "mod.oag.remix.mode", value = "zone" }
+
+[[page.entry]]
+id = "launch_remix"
+kind = "action"
+label = "START"
+string_id = "OAG_RACE_START"
+action = "launch_race"
+launch = { track_title = "mod.oag.remix.track_title", track = "mod.oag.remix.track", craft_title = "mod.oag.remix.craft_title", team = "mod.oag.remix.team", variant = "mod.oag.remix.variant", mode = "mod.oag.remix.mode", class = "mod.oag.remix.class", difficulty = "mod.oag.remix.difficulty" }
+
+[[page.entry]]
+kind = "back"
+label = "BACK"
+string_id = "OAG_MENU_BACK"

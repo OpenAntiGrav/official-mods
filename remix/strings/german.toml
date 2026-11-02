@@ -1,0 +1,6 @@
+[strings]
+OAG_MENU_REMIX = { text = "REMIX", human = false }
+OAG_MENU_REMIX_SUBTITLE = { text = "Kombiniere Strecken und Schiffe aus allen Titeln, die du besitzt", human = true }
+OAG_REMIX_PAGE_TITLE = { text = "RENN-REMIX", human = false }
+OAG_REMIX_TRACK_TITLE = { text = "STRECKENTITEL", human = false }
+OAG_REMIX_CRAFT_TITLE = { text = "SCHIFFSTITEL", human = false }

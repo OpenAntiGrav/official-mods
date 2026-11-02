@@ -1,0 +1,6 @@
+[strings]
+OAG_MENU_REMIX = { text = "REMIX", human = false }
+OAG_MENU_REMIX_SUBTITLE = { text = "Misture pistas e naves de todos os títulos que você tem", human = false }
+OAG_REMIX_PAGE_TITLE = { text = "REMIX DE CORRIDA", human = false }
+OAG_REMIX_TRACK_TITLE = { text = "TÍTULO DA PISTA", human = false }
+OAG_REMIX_CRAFT_TITLE = { text = "TÍTULO DA NAVE", human = false }

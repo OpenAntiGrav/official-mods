@@ -1,0 +1,14 @@
+# RACE REMIX: a race whose track comes from one title and whose craft from another.
+# A page and a row only; the two-source race itself (ADR-0034), the craft fallback
+# (ADR-0035) and the queries the page reads are the engine's.
+
+toml-schema = { location = "https://oag.topaxi.com/mods/schemas/v1/mod.tosd", version = "1.0.0" }
+
+[mod]
+id = "oag.remix"
+name = "Race Remix"
+version = "1.0.0"
+authors = ["The OpenAntiGrav contributors"]
+license = "MIT OR Apache-2.0"
+description = "RACE REMIX: race any title's track with any title's craft, from every disc you own."
+repository = "https://github.com/OpenAntiGrav/official-mods"
