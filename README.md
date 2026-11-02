@@ -14,7 +14,7 @@ The format is documented in the engine repository: `docs/tools/mods.md`.
 
 ## Rules
 
-- **No game content.** Nothing extracted from a disc.
+- **No game content.** Nothing extracted from a disc. The one exception is a mod's own README screenshots (frames of the game running, never assets), as in `remix/`.
 - One folder per mod, each with its own `oag-mod.toml`.
 - A mod here names only engine vocabulary (rows, pages, queries, `launch_race`); the
   engine names no mod of this repository.
