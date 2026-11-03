@@ -59,10 +59,12 @@ icon = { mod = "omega" }
 [pickup.titles.wipeout-2048]
 icon = { mod = "2048" }
 
-# What the weapon pads hand it out at, beside the title's weapons, per title (weights
-# chosen, not measured: about a Turbo's share at the front and more in the pack).
+# What the weapon pads hand it out at, beside the title's weapons, for every title and class.
+# The tables are on one scale (weights sum to 86 on Pulse, about 100 on HD, Omega and 2048,
+# and a Turbo is 14 to 16 of them), so one row gives a similar share everywhere: about 6 to
+# 10 draws in 100, half a Turbo. Chosen, not measured.
 [[pickup.odds]]
-ai = 3.0
-human = 3.0
-front = 1.0
+ai = 6.0
+human = 6.0
+front = 0.0
 back = 4.0

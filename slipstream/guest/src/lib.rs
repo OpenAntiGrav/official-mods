@@ -138,9 +138,15 @@ impl Extension for Slipstream {
         for event in obs.events() {
             match event {
                 Event::PickupFire { slot } => state.enqueue(slot),
-                Event::Clearance { slot, fits, .. } => state.slots[slot.index()].fits = fits,
+                Event::Clearance { slot, fits, .. } => {
+                    if let Some(memory) = state.slots.get_mut(slot.index()) {
+                        memory.fits = fits;
+                    }
+                }
                 Event::TransitEnd { slot } => {
-                    state.slots[slot.index()].left = 0;
+                    if let Some(memory) = state.slots.get_mut(slot.index()) {
+                        memory.left = 0;
+                    }
                     if usize::from(state.active) == slot.index() + 1 {
                         state.active = 0;
                     }
@@ -152,11 +158,12 @@ impl Extension for Slipstream {
         if state.active != 0 {
             let index = usize::from(state.active) - 1;
             let craft = Slot::new(index).and_then(|slot| obs.craft(slot));
-            let memory = &mut state.slots[index];
+            let left = state.slots.get(index).map_or(0, |memory| memory.left);
             match craft {
-                Some(craft) if memory.left > 0 => {
-                    memory.left -= 1;
-                    view(reply, &craft, &look, u16::from(memory.left));
+                Some(craft) if left > 0 => {
+                    let left = left - 1;
+                    state.slots[index].left = left;
+                    view(reply, &craft, &look, u16::from(left));
                 }
                 Some(craft) if craft.in_transit() => {}
                 _ => state.active = 0,
@@ -168,10 +175,11 @@ impl Extension for Slipstream {
             let craft = Slot::new(index).and_then(|slot| obs.craft(slot));
             if let Some(craft) = craft
                 && holds_it(&craft)
-                && state.slots[index].fits
+                && let Some(memory) = state.slots.get_mut(index)
+                && memory.fits
             {
                 go(reply, &craft, &look);
-                state.slots[index].left = TRANSIT_TICKS as u8;
+                memory.left = TRANSIT_TICKS as u8;
                 state.active = index as u8 + 1;
             }
         }

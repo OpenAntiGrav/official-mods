@@ -157,3 +157,13 @@ fn a_queued_fire_is_dropped_when_the_portal_no_longer_fits() {
     race.event(fits(b, true));
     assert_eq!(transits(&race.tick()), 0, "the dropped fire is not remembered");
 }
+
+#[test]
+fn a_slot_past_the_eighth_is_ignored_not_a_trap() {
+    let far = slot(12);
+    let mut race = Race::<Slipstream>::new().with_craft(far, holder(false));
+    race.event(Event::PickupFire { slot: far });
+    race.event(fits(far, true));
+    race.event(Event::TransitEnd { slot: far });
+    assert_eq!(transits(&race.tick()), 0);
+}
