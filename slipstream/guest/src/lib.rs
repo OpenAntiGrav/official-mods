@@ -56,7 +56,7 @@ struct Look {
 }
 
 impl Look {
-    /// The four titles the manifest lists; Pulse's look is the fallback for a title the host
+    /// The five titles the manifest lists; Pulse's look is the fallback for a title the host
     /// does not name.
     fn of(title: u32) -> Self {
         if title == title!("wipeout-2048") {
@@ -65,6 +65,8 @@ impl Look {
             Self { effect: 1, rgb: [0xFF, 0x8A, 0x20] }
         } else if title == title!("wipeout-omega-collection") {
             Self { effect: 2, rgb: [0xA0, 0x60, 0xFF] }
+        } else if title == title!("wipeout-pure") {
+            Self { effect: 4, rgb: [0x40, 0xFF, 0x40] }
         } else {
             Self { effect: 3, rgb: [0x30, 0xB8, 0xFF] }
         }

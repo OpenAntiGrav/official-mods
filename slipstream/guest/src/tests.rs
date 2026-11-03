@@ -222,3 +222,17 @@ fn a_slot_past_the_eighth_is_ignored_not_a_trap() {
     race.event(Event::TransitEnd { slot: far });
     assert_eq!(transits(&race.tick()), 0);
 }
+
+#[test]
+fn pure_has_its_own_portal_effect_and_colour() {
+    let pure = Look::of(title!("wipeout-pure"));
+    assert_eq!((pure.effect, pure.rgb), (4, [0x40, 0xFF, 0x40]));
+    for other in [
+        Look::of(title!("wipeout-2048")),
+        Look::of(title!("wipeout-hd")),
+        Look::of(title!("wipeout-omega-collection")),
+        Look::of(title!("wipeout-pulse")),
+    ] {
+        assert_ne!(other.effect, pure.effect);
+    }
+}

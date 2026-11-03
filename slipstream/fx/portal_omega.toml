@@ -1,7 +1,7 @@
 # Slipstream's portal for one title: a half disc standing on the road ahead (a camera-facing
 # sprite of fx/portal.png tinted a deep colour), fired by guest/src/lib.rs for the entry and the exit
 # for the length of the transit. Effects sort by name: portal_2048, portal_hd, portal_omega,
-# portal_pulse are indices 0 to 3.
+# portal_pulse, portal_pure are indices 0 to 4.
 
 toml-schema = { location = "https://oag.topaxi.com/mods/schemas/v1/effect.tosd", version = "1.0.0" }
 

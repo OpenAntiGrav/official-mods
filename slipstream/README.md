@@ -7,8 +7,7 @@ the portal is a tinted half disc (`fx/portal.png`) and the sounds are synthesise
 `src/synth_sounds.py`.
 
 Off until you turn it on on the MODS page. It supports Wipeout Pulse (PSP and PS2 share one
-icon), HD/Fury, Omega and 2048. Wipeout Pure is left out: no Slipstream icon art is shipped
-for it.
+icon), Wipeout Pure, HD/Fury, Omega and 2048.
 
 ![A half disc standing across the road ahead, the moment after fire.](at-the-portal-pulse.png)
 

@@ -13,8 +13,7 @@ authors = ["The OpenAntiGrav contributors"]
 license = "MIT OR Apache-2.0"
 description = "A pickup of its own: fire it where a half disc fits ahead and the craft goes through a portal, untouchable for a second, and comes out further along the circuit a little slower. One portal at a time; a second fire waits for the first."
 repository = "https://github.com/OpenAntiGrav/official-mods"
-# Pure is left out: no Slipstream icon art is shipped for it (icons/README.md).
-titles = ["wipeout-pulse", "wipeout-hd", "wipeout-omega-collection", "wipeout-2048"]
+titles = ["wipeout-pulse", "wipeout-pure", "wipeout-hd", "wipeout-omega-collection", "wipeout-2048"]
 default-enabled = false
 
 [extension]
@@ -34,6 +33,7 @@ portal_2048 = "fx/portal_2048.toml"
 portal_hd = "fx/portal_hd.toml"
 portal_omega = "fx/portal_omega.toml"
 portal_pulse = "fx/portal_pulse.toml"
+portal_pure = "fx/portal_pure.toml"
 
 # The mod's own sounds (sounds/, made by src/synth_sounds.py): a module's `play-mod-sound`
 # names one by its place in this table's name order (guest `SOUND_*`).
@@ -43,12 +43,14 @@ portal-open = "sounds/portal-open.wav"
 transit = "sounds/transit.wav"
 
 # One icon per title in that title's style. Pulse's PSP and PS2 pressings are one title to a
-# manifest, so they share the PS2 art (the larger, scaled down to the box).
+# manifest, so they share the PS2 art (the larger, scaled down to the box). Pure's is the glyph
+# alone: the engine draws Pure's striped backdrop under it.
 [icons]
 2048 = "icons/2048.png"
 hd = "icons/hd.png"
 omega = "icons/omega.png"
 pulse = "icons/pulse_ps2.png"
+pure = "icons/pure_psp.png"
 
 [pickup]
 icon = { mod = "pulse" }
@@ -56,6 +58,9 @@ colour = { title = "turbo" }
 
 [pickup.titles.wipeout-pulse]
 icon = { mod = "pulse" }
+
+[pickup.titles.wipeout-pure]
+icon = { mod = "pure" }
 
 [pickup.titles.wipeout-hd]
 icon = { mod = "hd" }
