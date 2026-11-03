@@ -76,6 +76,61 @@ fn a_press_with_room_goes_through_and_the_pickup_is_spent() {
 }
 
 #[test]
+fn the_entry_opens_with_a_sound_and_starts_the_transit_hum_which_the_exit_stops() {
+    let me = slot(0);
+    let mut race = Race::<Slipstream>::new().with_craft(me, holder(true));
+    race.event(Event::PickupFire { slot: me });
+    race.event(fits(me, true));
+    let sent = race.tick();
+    let sounds = |commands: &[Command]| -> Vec<(u16, SoundMode)> {
+        commands
+            .iter()
+            .filter_map(|c| match c {
+                Command::PlayModSound { index, mode, .. } => Some((*index, *mode)),
+                _ => None,
+            })
+            .collect()
+    };
+    assert_eq!(
+        sounds(&sent),
+        [(SOUND_OPEN, SoundMode::Once), (SOUND_TRANSIT, SoundMode::Loop)]
+    );
+    *race.craft_mut(me) = Some(CraftRecord {
+        pickup: Pickup::None,
+        in_transit: true,
+        ..holder(true)
+    });
+    for _ in 0..10 {
+        assert!(sounds(&race.tick()).is_empty(), "the hum is not re-sent");
+    }
+    race.event(Event::TransitEnd { slot: me });
+    assert_eq!(
+        sounds(&race.tick()),
+        [(SOUND_TRANSIT, SoundMode::Stop), (SOUND_EXIT, SoundMode::Once)]
+    );
+}
+
+#[test]
+fn the_sound_indices_are_the_name_order_of_the_manifest() {
+    let manifest = include_str!("../../oag-mod.toml");
+    let table = manifest.split("[sounds]").nth(1).expect("a [sounds] table");
+    let names: Vec<&str> = table
+        .lines()
+        .skip(1)
+        .take_while(|line| !line.starts_with('['))
+        .filter_map(|line| line.split('=').next())
+        .map(str::trim)
+        .filter(|name| !name.is_empty() && !name.starts_with('#'))
+        .collect();
+    assert_eq!(names[usize::from(SOUND_EXIT)], "portal-exit");
+    assert_eq!(names[usize::from(SOUND_OPEN)], "portal-open");
+    assert_eq!(names[usize::from(SOUND_TRANSIT)], "transit");
+    let mut sorted = names.clone();
+    sorted.sort_unstable();
+    assert_eq!(names, sorted, "listed in name order");
+}
+
+#[test]
 fn the_view_fills_with_the_titles_colour_and_widens_for_the_whole_transit() {
     let me = slot(0);
     let mut race = Race::<Slipstream>::new()

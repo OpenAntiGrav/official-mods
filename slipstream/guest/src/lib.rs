@@ -12,12 +12,16 @@
 //! - **One at a time**: a race has one active portal pair. A fire requested while another craft
 //!   is in transit waits in a queue and runs when that transit ends, if the portal still fits.
 //!
+//! - **Sound**: the entry, a hum for the transit and the exit are the mod's own sounds
+//!   (`[sounds]`), played from the craft; a person hears their own craft dry and the others
+//!   placed in the world.
+//!
 //! The portal is the engine's mod effect at the road ahead (`fx/portal_<title>.toml`, a
 //! camera-facing sprite): all of its look is in `Look` and `fx/`, apart from the rules.
 #![cfg_attr(not(test), no_std)]
 
 use oag_ext::{
-    Craft, Cue, Distance, Event, Extension, Observation, Pickup, Reply, Rgba, Slot, title,
+    Craft, Distance, Event, Extension, Observation, Pickup, Reply, Rgba, Slot, SoundMode, title,
 };
 
 // The numbers below are chosen, not measured.
@@ -37,6 +41,12 @@ const FOV_JUMP: f32 = 20.0;
 /// Ticks the screen fill takes to come in, and to go out before the exit.
 const FILL_RAMP: u16 = 10;
 const SLOTS: usize = 8;
+
+/// The mod's own sounds by their place in `[sounds]`, which is name order: `portal-exit`,
+/// `portal-open`, `transit` (`sounds/`, made by `src/synth_sounds.py`).
+const SOUND_EXIT: u16 = 0;
+const SOUND_OPEN: u16 = 1;
+const SOUND_TRANSIT: u16 = 2;
 
 /// What a title's portal looks like: its effect (`[effects]` in name order) and the colour of
 /// the screen fill.
@@ -127,7 +137,14 @@ fn go(reply: &mut Reply<'_>, craft: &Craft<'_>, look: &Look) {
     let _ = reply.clear_pickup(craft);
     let _ = reply.fire_mod_effect_ahead(craft, look.effect, Distance::Units(AHEAD));
     let _ = reply.fire_mod_effect_ahead(craft, look.effect, exit);
-    let _ = reply.play_cue(craft, Cue::Turbo);
+    let _ = reply.play_mod_sound(craft, SOUND_OPEN, SoundMode::Once);
+    let _ = reply.play_mod_sound(craft, SOUND_TRANSIT, SoundMode::Loop);
+}
+
+/// The craft is back in the world: the transit hum ends and the exit sounds.
+fn arrive(reply: &mut Reply<'_>, craft: &Craft<'_>) {
+    let _ = reply.play_mod_sound(craft, SOUND_TRANSIT, SoundMode::Stop);
+    let _ = reply.play_mod_sound(craft, SOUND_EXIT, SoundMode::Once);
 }
 
 impl Extension for Slipstream {
@@ -144,6 +161,9 @@ impl Extension for Slipstream {
                     }
                 }
                 Event::TransitEnd { slot } => {
+                    if let Some(craft) = obs.craft(slot) {
+                        arrive(reply, &craft);
+                    }
                     if let Some(memory) = state.slots.get_mut(slot.index()) {
                         memory.left = 0;
                     }

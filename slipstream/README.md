@@ -3,7 +3,8 @@
 A pickup of its own, handed out by the weapon pads beside the title's weapons. Fire it and
 the craft goes through a portal and comes out about two seconds further along the circuit,
 a little slower. It adds no game content: the icons are original art (`icons/README.md`) and
-the portal is a tinted half disc (`fx/portal.png`).
+the portal is a tinted half disc (`fx/portal.png`) and the sounds are synthesised by
+`src/synth_sounds.py`.
 
 Off until you turn it on on the MODS page. It supports Wipeout Pulse (PSP and PS2 share one
 icon), HD/Fury, Omega and 2048. Wipeout Pure is left out: no Slipstream icon art is shipped
@@ -28,6 +29,13 @@ for it.
   tick.
 - **One portal at a time.** A fire while another craft is in transit waits in a queue and
   runs when that transit ends, if the portal still fits then.
+
+- **Sound.** Entering plays a short rising whoosh (`portal-open`) and a low hum
+  (`transit`) that lasts the transit; coming out ends the hum and plays a softer falling
+  whoosh (`portal-exit`). They come from the craft: you hear your own dry and a rival's
+  placed in the world. These are placeholders we synthesise ourselves: `src/synth_sounds.py`
+  writes `sounds/*.wav` (standard library only, seeded, MIT OR Apache-2.0), peaks between
+  -10 and -15 dBFS. Real sounds replace the three files under the same names.
 
 ![In transit on Wipeout Pulse: the view filled with the Pulse portal colour.](in-transit-pulse.png)
 

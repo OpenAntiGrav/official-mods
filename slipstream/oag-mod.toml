@@ -35,6 +35,13 @@ portal_hd = "fx/portal_hd.toml"
 portal_omega = "fx/portal_omega.toml"
 portal_pulse = "fx/portal_pulse.toml"
 
+# The mod's own sounds (sounds/, made by src/synth_sounds.py): a module's `play-mod-sound`
+# names one by its place in this table's name order (guest `SOUND_*`).
+[sounds]
+portal-exit = "sounds/portal-exit.wav"
+portal-open = "sounds/portal-open.wav"
+transit = "sounds/transit.wav"
+
 # One icon per title in that title's style. Pulse's PSP and PS2 pressings are one title to a
 # manifest, so they share the PS2 art (the larger, scaled down to the box).
 [icons]
