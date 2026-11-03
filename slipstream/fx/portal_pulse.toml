@@ -1,5 +1,5 @@
 # Slipstream's portal for one title: a half disc standing on the road ahead (a camera-facing
-# sprite of fx/portal.png tinted 30b8ff), fired by guest/src/lib.rs for the entry and the exit
+# sprite of fx/portal.png tinted a deep colour), fired by guest/src/lib.rs for the entry and the exit
 # for the length of the transit. Effects sort by name: portal_2048, portal_hd, portal_omega,
 # portal_pulse are indices 0 to 3.
 
@@ -16,8 +16,8 @@ speed = [0.0, 0.0]
 spread = 0
 drag = 1.0
 live-cap = 2
-blend = "additive"
+blend = "alpha-over"
 size = [[0.0, 12.0], [1.0, 12.0]]
 alpha = [[0.0, 0.0], [0.08, 1.0], [0.85, 1.0], [1.0, 0.0]]
-colour = [[0.0, "#30b8ff"]]
+colour = [[0.0, "#1088ff"]]
 texture = "fx/portal.png"
