@@ -1,0 +1,68 @@
+# Slipstream: a pickup that carries the craft through a portal to a point further along the
+# circuit. A simulation mod (docs/architecture/wasm-extensions/): it runs only in a build with
+# the `extensions` cargo feature, in races with weapons. Rules are in guest/src/lib.rs;
+# ext/slipstream.wasm is `guest/build.sh`'s output, committed. Off until the player turns it on.
+
+toml-schema = { location = "https://oag.topaxi.com/mods/schemas/v1/mod.tosd", version = "1.0.0" }
+
+[mod]
+id = "oag.slipstream"
+name = "Slipstream"
+version = "1.0.0"
+authors = ["The OpenAntiGrav contributors"]
+license = "MIT OR Apache-2.0"
+description = "A pickup of its own: fire it where a half disc fits ahead and the craft goes through a portal, untouchable for a second, and comes out further along the circuit a little slower. One portal at a time; a second fire waits for the first."
+repository = "https://github.com/OpenAntiGrav/official-mods"
+# Pure is left out: no Slipstream icon art is shipped for it (icons/README.md).
+titles = ["wipeout-pulse", "wipeout-hd", "wipeout-omega-collection", "wipeout-2048"]
+default-enabled = false
+
+[extension]
+simulation = true
+api = 1
+memory_pages = 2
+# 8 slots of 2 bytes, the queue of 8, the slot in transit (guest `Portal`).
+state_bytes = 25
+
+[extension.rules]
+module = "ext/slipstream.wasm"
+
+# One portal per title, a tinted half disc (guest `Look::of` names them by their place in
+# this table's name order).
+[effects]
+portal_2048 = "fx/portal_2048.toml"
+portal_hd = "fx/portal_hd.toml"
+portal_omega = "fx/portal_omega.toml"
+portal_pulse = "fx/portal_pulse.toml"
+
+# One icon per title in that title's style. Pulse's PSP and PS2 pressings are one title to a
+# manifest, so they share the PS2 art (the larger, scaled down to the box).
+[icons]
+2048 = "icons/2048.png"
+hd = "icons/hd.png"
+omega = "icons/omega.png"
+pulse = "icons/pulse_ps2.png"
+
+[pickup]
+icon = { mod = "pulse" }
+colour = { title = "turbo" }
+
+[pickup.titles.wipeout-pulse]
+icon = { mod = "pulse" }
+
+[pickup.titles.wipeout-hd]
+icon = { mod = "hd" }
+
+[pickup.titles.wipeout-omega-collection]
+icon = { mod = "omega" }
+
+[pickup.titles.wipeout-2048]
+icon = { mod = "2048" }
+
+# What the weapon pads hand it out at, beside the title's weapons, per title (weights
+# chosen, not measured: about a Turbo's share at the front and more in the pack).
+[[pickup.odds]]
+ai = 3.0
+human = 3.0
+front = 1.0
+back = 4.0

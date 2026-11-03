@@ -1,0 +1,23 @@
+# Slipstream's portal for one title: a half disc standing on the road ahead (a camera-facing
+# sprite of fx/portal.png tinted 20e070), fired by guest/src/lib.rs for the entry and the exit
+# for the length of the transit. Effects sort by name: portal_2048, portal_hd, portal_omega,
+# portal_pulse are indices 0 to 3.
+
+toml-schema = { location = "https://oag.topaxi.com/mods/schemas/v1/effect.tosd", version = "1.0.0" }
+
+axis = "up"
+
+[[emitter]]
+name = "portal"
+duration = 1
+per-emission = 1
+lifetime = [60, 0]
+speed = [0.0, 0.0]
+spread = 0
+drag = 1.0
+live-cap = 2
+blend = "additive"
+size = [[0.0, 12.0], [1.0, 12.0]]
+alpha = [[0.0, 0.0], [0.08, 1.0], [0.85, 1.0], [1.0, 0.0]]
+colour = [[0.0, "#20e070"]]
+texture = "fx/portal.png"

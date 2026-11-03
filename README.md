@@ -9,6 +9,7 @@ on the game's default mod search path.
 | Mod | What it adds |
 | --- | --- |
 | [`remix/`](remix/) (`oag.remix`) | RACE REMIX: a REMIX row under RACEBOX (and a tile on Wipeout 2048's grid) opening a page that races one title's track with another title's craft, from every disc this machine has. Its picks are saved under `[mod_settings."oag.remix"]`. Turned off, the row, the page and the tile are gone and nothing else changes. |
+| [`slipstream/`](slipstream/) (`oag.slipstream`) | Slipstream: a pickup from the weapon pads that carries the craft through a portal about two seconds further along the circuit (about a second untouchable, a little slower on exit). Needs room for the portal ahead; one portal at a time. Pulse, HD, Omega and 2048 (no Pure art). Off until turned on. |
 
 The format is documented in the engine repository: `docs/tools/mods.md`.
 
