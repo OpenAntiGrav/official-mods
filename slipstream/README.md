@@ -35,7 +35,7 @@ for it.
   whoosh (`portal-exit`). They come from the craft: you hear your own dry and a rival's
   placed in the world. These are placeholders we synthesise ourselves: `src/synth_sounds.py`
   writes `sounds/*.wav` (standard library only, seeded, MIT OR Apache-2.0), peaks between
-  -10 and -15 dBFS. Real sounds replace the three files under the same names.
+  -6 and -11 dBFS. Real sounds replace the three files under the same names.
 
 ![In transit on Wipeout Pulse: the view filled with the Pulse portal colour.](in-transit-pulse.png)
 

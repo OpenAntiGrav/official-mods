@@ -77,7 +77,7 @@ def portal_open(rng):
         (0.8 * a + 0.35 * b) * envelope(n, total, 0.03, 0.05)
         for n, (a, b) in enumerate(zip(noise, tone))
     ]
-    return normalise(mixed, 0.30)
+    return normalise(mixed, 0.50)
 
 
 def transit(_rng):
@@ -91,7 +91,7 @@ def transit(_rng):
             + 0.3 * math.sin(2 * math.pi * 330 * t)
         )
         out.append(hum * (0.75 + 0.25 * math.sin(2 * math.pi * 4 * t)))
-    return normalise(out, 0.18)
+    return normalise(out, 0.28)
 
 
 def portal_exit(rng):
@@ -103,7 +103,7 @@ def portal_exit(rng):
         (0.8 * a + 0.3 * b) * envelope(n, total, 0.02, 0.06)
         for n, (a, b) in enumerate(zip(noise, tone))
     ]
-    return normalise(mixed, 0.22)
+    return normalise(mixed, 0.38)
 
 
 def write(path, samples):
