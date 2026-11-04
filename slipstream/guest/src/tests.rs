@@ -254,11 +254,10 @@ fn pure_has_its_own_portal_effect_and_colour() {
     }
 }
 
-/// Ticks of a portal's life for a person at 360 km/h (100 units a second) on a 4000 unit lap,
-/// with the player's QUALITY pick `option`, as the commands that are not the view.
-fn portal_commands(option: u8) -> (Vec<Command>, Vec<Command>) {
+/// A person at 360 km/h (100 units a second) with the pickup, `at` along a 4000 unit lap.
+fn flier(at: f32) -> Race<Slipstream> {
     let me = slot(0);
-    let mut race = Race::<Slipstream>::new()
+    Race::<Slipstream>::new()
         .with_craft(
             me,
             CraftRecord {
@@ -266,11 +265,33 @@ fn portal_commands(option: u8) -> (Vec<Command>, Vec<Command>) {
                 ..holder(true)
             },
         )
-        .with_course(4000.0, me, Some(3900.0), 1)
-        .with_options([option, 0, 0, 0]);
+        .with_course(4000.0, me, Some(at), 1)
+}
+
+/// Moves the craft on the lap to `at` without touching anything else.
+fn move_to(race: &mut Race<Slipstream>, at: f32) {
+    let me = slot(0);
+    let record = race.craft_mut(me).clone();
+    *race = std::mem::take(race).with_course(4000.0, me, Some(at), 1);
+    *race.craft_mut(me) = record;
+}
+
+/// Ticks of a portal's life for a person at 360 km/h on a 4000 unit lap, pressing at 3900 and
+/// flying 5 units a tick to the entrance at 3930, with the player's QUALITY pick `option`, as
+/// the commands that are not the view.
+fn portal_commands(option: u8) -> (Vec<Command>, Vec<Command>) {
+    let me = slot(0);
+    let mut race = flier(3900.0).with_options([option, 0, 0, 0]);
     race.event(Event::PickupFire { slot: me });
     race.event(fits(me, true));
     let mut all = race.tick();
+    let mut at = 3900.0;
+    while transits(&all) == 0 {
+        at += 5.0;
+        move_to(&mut race, at);
+        all.extend(race.tick());
+        assert!(at < 4000.0, "never went through");
+    }
     *race.craft_mut(me) = Some(CraftRecord {
         pickup: Pickup::None,
         in_transit: true,
@@ -289,17 +310,17 @@ fn portal_commands(option: u8) -> (Vec<Command>, Vec<Command>) {
 #[test]
 fn the_view_looks_from_the_entrance_to_the_exit_the_transit_will_land_at() {
     let (views, _) = portal_commands(2);
-    // 30 units ahead of 3900, and two seconds of 100 units a second past the craft, round the lap.
+    // 30 units ahead of 3900, and two seconds of 100 units a second past that, round the lap.
     let want = Command::PortalView {
         slot: slot(0),
         entrance: 3930.0,
-        exit: 100.0,
+        exit: 130.0,
         radius: VIEW_RADIUS,
         update: ViewUpdate::Continuous,
         generation: 1,
     };
     assert!(
-        views.len() >= 55,
+        views.len() >= 60,
         "every tick the portal stands: {}",
         views.len()
     );
@@ -383,4 +404,149 @@ fn every_person_sees_the_portal_a_craft_opened_and_no_view_without_a_fix() {
         })
         .collect();
     assert_eq!(looking, [a, b], "both people, not the AI");
+}
+
+fn commands_of(race: &mut Race<Slipstream>, at: f32) -> Vec<Command> {
+    move_to(race, at);
+    race.tick()
+}
+
+#[test]
+fn the_craft_flies_to_the_portal_and_the_transit_starts_at_the_entrance_not_on_the_press() {
+    let me = slot(0);
+    let mut race = flier(3900.0).with_options([2, 0, 0, 0]);
+    race.event(Event::PickupFire { slot: me });
+    race.event(fits(me, true));
+    let press = race.tick();
+    assert_eq!(transits(&press), 0, "not on the press");
+    assert!(
+        !press
+            .iter()
+            .any(|c| matches!(c, Command::ClearPickup { .. })),
+        "the pickup is spent at the entrance"
+    );
+    assert!(press.contains(&Command::FireModEffectAhead {
+        slot: me,
+        index: 3,
+        distance: Distance::Units(AHEAD)
+    }));
+    assert!(press.contains(&Command::PlayModSound {
+        slot: me,
+        index: SOUND_OPEN,
+        mode: SoundMode::Once
+    }));
+    for at in [3905.0, 3915.0, 3929.0] {
+        let flying = commands_of(&mut race, at);
+        assert_eq!(transits(&flying), 0, "still short of the entrance at {at}");
+        assert!(
+            flying
+                .iter()
+                .any(|c| matches!(c, Command::PortalView { .. })),
+            "the firer sees the window at {at}"
+        );
+        assert!(
+            !flying
+                .iter()
+                .any(|c| matches!(c, Command::ScreenFill { .. })),
+            "no fill before the entrance"
+        );
+    }
+    let arrival = commands_of(&mut race, 3931.0);
+    // The exit stands 200 units on from the entrance at 3930: 4130 is 130 on the lap.
+    assert!(arrival.contains(&Command::Transit {
+        slot: me,
+        ticks: TRANSIT_TICKS,
+        distance: Distance::Units(199.0),
+        exit_factor: EXIT_FACTOR
+    }));
+    assert!(arrival.contains(&Command::ClearPickup { slot: me }));
+    assert!(arrival.contains(&Command::FireModEffectAhead {
+        slot: me,
+        index: 3,
+        distance: Distance::Units(199.0)
+    }));
+    assert!(arrival.contains(&Command::PlayModSound {
+        slot: me,
+        index: SOUND_TRANSIT,
+        mode: SoundMode::Loop
+    }));
+}
+
+#[test]
+fn the_entrance_across_the_line_is_reached_by_wrapping_not_by_the_number() {
+    let me = slot(0);
+    let mut race = flier(3990.0);
+    race.event(Event::PickupFire { slot: me });
+    race.event(fits(me, true));
+    race.tick();
+    assert_eq!(transits(&commands_of(&mut race, 3995.0)), 0);
+    assert_eq!(
+        transits(&commands_of(&mut race, 10.0)),
+        0,
+        "10 is short of 20"
+    );
+    assert_eq!(transits(&commands_of(&mut race, 21.0)), 1);
+}
+
+#[test]
+fn a_craft_that_never_arrives_closes_the_portal_and_keeps_the_pickup() {
+    let me = slot(0);
+    let mut race = flier(3900.0);
+    race.event(Event::PickupFire { slot: me });
+    race.event(fits(me, true));
+    let mut all = race.tick();
+    for _ in 0..usize::from(APPROACH_LIMIT) + 2 {
+        all.extend(race.tick());
+    }
+    assert_eq!(transits(&all), 0);
+    assert!(!all.iter().any(|c| matches!(c, Command::ClearPickup { .. })));
+    // Closed: the next press opens a portal again.
+    race.event(Event::PickupFire { slot: me });
+    race.event(fits(me, true));
+    race.tick();
+    let again = commands_of(&mut race, 3935.0);
+    assert_eq!(transits(&again), 1, "the kept pickup fires again");
+}
+
+#[test]
+fn a_craft_that_loses_the_pickup_on_the_way_closes_the_portal() {
+    let me = slot(0);
+    let mut race = flier(3900.0);
+    race.event(Event::PickupFire { slot: me });
+    race.event(fits(me, true));
+    race.tick();
+    *race.craft_mut(me) = Some(CraftRecord {
+        racing: false,
+        speed_kmh: 360.0,
+        ..holder(true)
+    });
+    assert_eq!(transits(&commands_of(&mut race, 3940.0)), 0, "wrecked");
+}
+
+#[test]
+fn another_fire_waits_while_the_first_is_still_flying_to_the_portal() {
+    let (a, b) = (slot(0), slot(1));
+    let mut race = flier(3900.0).with_craft(b, holder(false));
+    race.event(Event::PickupFire { slot: a });
+    race.event(Event::PickupFire { slot: b });
+    race.event(fits(a, true));
+    race.event(fits(b, true));
+    let press = race.tick();
+    assert!(!press.iter().any(|c| matches!(c, Command::Transit { .. })));
+    assert_eq!(
+        transits(&commands_of(&mut race, 3935.0)),
+        1,
+        "the first goes"
+    );
+}
+
+#[test]
+fn the_manifest_declares_the_state_the_guest_keeps() {
+    let manifest = include_str!("../../oag-mod.toml");
+    let declared: usize = manifest
+        .lines()
+        .find_map(|line| line.strip_prefix("state_bytes = "))
+        .and_then(|n| n.trim().parse().ok())
+        .expect("a state_bytes line");
+    assert_eq!(declared, <Portal as oag_ext::Blob>::BYTES);
 }

@@ -20,10 +20,14 @@ icon), Wipeout Pure, HD/Fury, Omega and 2048.
   road at least 24 wide, nothing between its middle and its rim). With no room the press
   is dropped and you keep the pickup. The AI fires it where the engine's Turbo gate would,
   with the same room rule.
-- **Transit** lasts one second: the craft is out of the world (not drawn, not collided with,
-  not hit or locked, no steering, no thrust). Your view fills with the title's portal colour
-  and the field of view widens by 20 degrees for the whole second.
-- **Exit** two seconds of your speed further along the circuit at 90 % of your speed. Laps and
+- **Approach**: the portal opens at the press and you keep flying, in the world, to it; the
+  window is in front of you until you reach it. The pickup is spent at the entrance. If you
+  have not arrived within 50 ticks (stopped, wrecked, lost the pickup) the portal closes and
+  you keep the pickup. Other craft do not enter it.
+- **Transit** lasts one second from the entrance: the craft is out of the world (not drawn, not
+  collided with, not hit or locked, no steering, no thrust). Your view fills with the title's
+  portal colour and the field of view widens by 20 degrees for the whole second.
+- **Exit** two seconds of your speed (at the press) past the entrance along the circuit at 90 % of your speed. Laps and
   the finish count through the jump: a jump over the line is a lap, or the finish, on the exit
   tick.
 - **One portal at a time.** A fire while another craft is in transit waits in a queue and
