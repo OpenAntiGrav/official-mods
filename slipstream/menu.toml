@@ -1,6 +1,7 @@
 # Slipstream's one setting: how the portal's surface is drawn. A row under OPTIONS opens a
 # page with a QUALITY choice saved under [mod_settings."oag.slipstream"]. The guest reads the
-# pick with `Observation::option(0)` (the index in `values`), for what it draws only.
+# pick with `Observation::option(0)` (the index in `values`); a `view` row, so only the call whose
+# outputs are drawn sees it.
 
 toml-schema = { location = "https://oag.topaxi.com/mods/schemas/v1/mod-menu.tosd", version = "1.0.0" }
 
@@ -28,3 +29,6 @@ string_id = "OAG_SLIPSTREAM_QUALITY"
 setting = "mod.oag.slipstream.quality"
 values = ["low", "medium", "high"]
 default = "high"
+# A view row: the simulation tick reads the default, only what the guest draws follows this
+# device's pick, and it is no part of the race's identity.
+scope = "view"
