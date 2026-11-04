@@ -29,6 +29,9 @@ icon), Wipeout Pure, HD/Fury, Omega and 2048.
 - **One portal at a time.** A fire while another craft is in transit waits in a queue and
   runs when that transit ends, if the portal still fits then.
 
+- **The portal's surface** shows the road at the exit (`fx/portal.wgsl`). OPTIONS > SLIPSTREAM > PORTAL VIEW: Low is an animated
+  surface with no second view, Medium one snapshot per portal, High the view every frame (default). It changes nothing in the race.
+
 - **Sound.** Entering plays a short rising whoosh (`portal-open`) and a low hum
   (`transit`) that lasts the transit; coming out ends the hum and plays a softer falling
   whoosh (`portal-exit`). They come from the craft: you hear your own dry and a rival's

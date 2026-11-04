@@ -1,0 +1,5 @@
+# Slipstream's own text.
+[strings]
+OAG_MENU_SLIPSTREAM = { text = "SLIPSTREAM", human = false }
+OAG_MENU_SLIPSTREAM_SUBTITLE = { text = "How the portal shows the road at its exit", human = false }
+OAG_SLIPSTREAM_QUALITY = { text = "PORTAL VIEW", human = false }

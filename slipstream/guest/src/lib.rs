@@ -16,12 +16,21 @@
 //!   (`[sounds]`), played from the craft; a person hears their own craft dry and the others
 //!   placed in the world.
 //!
+//! - **The view**: while a portal stands, `portal_view` asks the engine for the road at the exit
+//!   through the entrance for every person's craft, and `fx/portal.wgsl` draws it on the portal's
+//!   surface. How is the player's QUALITY row (`menu.toml`, read with `Observation::option`):
+//!   Low asks for nothing and the shader draws its own animated fallback, Medium asks for one
+//!   snapshot per portal, High for the view every frame. Drawn only: the pick never reaches the
+//!   rules, so a race plays out the same at all three.
+//!
 //! The portal is the engine's mod effect at the road ahead (`fx/portal_<title>.toml`, a
-//! camera-facing sprite): all of its look is in `Look` and `fx/`, apart from the rules.
+//! camera-facing sprite drawn by `fx/portal.wgsl`): all of its look is in `Look` and `fx/`,
+//! apart from the rules.
 #![cfg_attr(not(test), no_std)]
 
 use oag_ext::{
-    Craft, Distance, Event, Extension, Observation, Pickup, Reply, Rgba, Slot, SoundMode, title,
+    Craft, Distance, Event, Extension, Observation, Pickup, Reply, Rgba, Slot, SoundMode,
+    ViewUpdate, title,
 };
 
 // The numbers below are chosen, not measured.
@@ -41,6 +50,15 @@ const FOV_JUMP: f32 = 20.0;
 /// Ticks the screen fill takes to come in, and to go out before the exit.
 const FILL_RAMP: u16 = 10;
 const SLOTS: usize = 8;
+/// Km/h in a track unit a second: the exit's distance is `EXIT_SECONDS` of the entry speed.
+const SPEED_TO_KMH: f32 = 3.6;
+/// How far the portal's surface reaches for the view's visibility test, units: a little over
+/// half `fx/portal_*.toml`'s `size`.
+const VIEW_RADIUS: u8 = 8;
+/// `[shaders]`, by place in name order: `portal`.
+const SHADER_PORTAL: u16 = 0;
+/// A snapshot is taken again when this changes: it counts the portals, up to the engine's cap.
+const GENERATIONS: u8 = 64;
 
 /// The mod's own sounds by their place in `[sounds]`, which is name order: `portal-exit`,
 /// `portal-open`, `transit` (`sounds/`, made by `src/synth_sounds.py`).
@@ -60,15 +78,30 @@ impl Look {
     /// does not name.
     fn of(title: u32) -> Self {
         if title == title!("wipeout-2048") {
-            Self { effect: 0, rgb: [0x20, 0xE0, 0x70] }
+            Self {
+                effect: 0,
+                rgb: [0x20, 0xE0, 0x70],
+            }
         } else if title == title!("wipeout-hd") {
-            Self { effect: 1, rgb: [0xFF, 0x8A, 0x20] }
+            Self {
+                effect: 1,
+                rgb: [0xFF, 0x8A, 0x20],
+            }
         } else if title == title!("wipeout-omega-collection") {
-            Self { effect: 2, rgb: [0xA0, 0x60, 0xFF] }
+            Self {
+                effect: 2,
+                rgb: [0xA0, 0x60, 0xFF],
+            }
         } else if title == title!("wipeout-pure") {
-            Self { effect: 4, rgb: [0x40, 0xFF, 0x40] }
+            Self {
+                effect: 4,
+                rgb: [0x40, 0xFF, 0x40],
+            }
         } else {
-            Self { effect: 3, rgb: [0x30, 0xB8, 0xFF] }
+            Self {
+                effect: 3,
+                rgb: [0x30, 0xB8, 0xFF],
+            }
         }
     }
 }
@@ -84,6 +117,32 @@ oag_ext::blob! {
     }
 }
 
+/// How the portal's surface is drawn, the mod's QUALITY row (`menu.toml`: low, medium, high).
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Quality {
+    /// No second view: the shader's own animated surface.
+    Low,
+    /// One snapshot of the exit per portal, held while the craft closes.
+    Medium,
+    /// The exit's view every frame.
+    High,
+}
+
+impl Quality {
+    fn of(option: u8) -> Self {
+        match option {
+            0 => Self::Low,
+            1 => Self::Medium,
+            _ => Self::High,
+        }
+    }
+
+    /// The shader's `quality` parameter.
+    fn param(self) -> f32 {
+        f32::from(self as u8)
+    }
+}
+
 oag_ext::blob! {
     /// Every slot, the queue of fires waiting for the portal (slot + 1, 0 is empty, oldest
     /// first) and the slot in transit (slot + 1, 0 is none).
@@ -91,6 +150,11 @@ oag_ext::blob! {
         pub slots: [Memory; SLOTS],
         pub queue: [u8; SLOTS],
         pub active: u8,
+        /// Where the portal in use stands and where it looks out, progress on the lap.
+        pub entrance: f32,
+        pub exit: f32,
+        /// Counts the portals, for a snapshot to be taken again.
+        pub generation: u8,
     }
 }
 
@@ -131,6 +195,46 @@ fn view(reply: &mut Reply<'_>, craft: &Craft<'_>, look: &Look, left: u16) {
     let [r, g, b] = look.rgb;
     let _ = reply.screen_fill(craft, Rgba::new(r, g, b, (alpha * 255.0) as u8));
     let _ = reply.fov_offset(craft, FOV_JUMP);
+}
+
+/// `progress` on by `units`, taken round the lap.
+fn on(progress: f32, units: f32, length: f32) -> f32 {
+    let at = progress + units;
+    let laps = (at / length) as i32 as f32;
+    let at = at - laps * length;
+    if at < 0.0 { at + length } else { at }
+}
+
+/// Where a fire by `craft` stands and looks out, the way `Race::point_ahead` resolves
+/// `AHEAD` units and `EXIT_SECONDS` of its speed: `None` with no course or no fix.
+fn places(craft: &Craft<'_>, length: f32) -> Option<(f32, f32)> {
+    let progress = craft.progress().filter(|_| length > 0.0)?;
+    let exit_units = EXIT_SECONDS * craft.speed_kmh() / SPEED_TO_KMH;
+    Some((
+        on(progress, AHEAD, length),
+        on(progress, exit_units, length),
+    ))
+}
+
+/// Asks for the road at the exit through the entrance, in the view of every person's craft,
+/// and tells the shader the quality. Low asks for no view.
+fn show(obs: &Observation<'_>, state: &Portal, reply: &mut Reply<'_>, quality: Quality) {
+    for craft in obs.crafts().filter(Craft::is_person) {
+        // A reply that is full loses a look and nothing else.
+        let _ = reply.set_shader_param(&craft, SHADER_PORTAL, 0, quality.param());
+        let update = match quality {
+            Quality::Low => continue,
+            Quality::Medium => ViewUpdate::Once,
+            Quality::High => ViewUpdate::Continuous,
+        };
+        let _ = reply.portal_view(
+            &craft,
+            (state.entrance, state.exit),
+            VIEW_RADIUS,
+            update,
+            state.generation,
+        );
+    }
 }
 
 fn go(reply: &mut Reply<'_>, craft: &Craft<'_>, look: &Look) {
@@ -186,6 +290,7 @@ impl Extension for Slipstream {
                     let left = left - 1;
                     state.slots[index].left = left;
                     view(reply, &craft, &look, u16::from(left));
+                    show(obs, state, reply, Quality::of(obs.option(0)));
                 }
                 Some(craft) if craft.in_transit() => {}
                 _ => state.active = 0,
@@ -203,6 +308,14 @@ impl Extension for Slipstream {
                 go(reply, &craft, &look);
                 memory.left = TRANSIT_TICKS as u8;
                 state.active = index as u8 + 1;
+                if let Some((entrance, exit)) = places(&craft, obs.course_length()) {
+                    state.entrance = entrance;
+                    state.exit = exit;
+                    state.generation = (state.generation + 1) % GENERATIONS;
+                } else {
+                    // No fix: `portal_view` refuses a progress below zero, so no view.
+                    state.entrance = -1.0;
+                }
             }
         }
 

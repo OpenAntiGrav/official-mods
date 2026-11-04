@@ -1,0 +1,30 @@
+# Slipstream's one setting: how the portal's surface is drawn. A row under OPTIONS opens a
+# page with a QUALITY choice saved under [mod_settings."oag.slipstream"]. The guest reads the
+# pick with `Observation::option(0)` (the index in `values`), for what it draws only.
+
+toml-schema = { location = "https://oag.topaxi.com/mods/schemas/v1/mod-menu.tosd", version = "1.0.0" }
+
+[[entry]]
+id = "slipstream"
+parent = "options"
+kind = "submenu"
+label = "SLIPSTREAM"
+string_id = "OAG_MENU_SLIPSTREAM"
+target = "slipstream"
+subtitle = "How the portal shows the road at its exit"
+subtitle_string_id = "OAG_MENU_SLIPSTREAM_SUBTITLE"
+
+[[page]]
+id = "slipstream"
+title = "SLIPSTREAM"
+title_string_id = "OAG_MENU_SLIPSTREAM"
+
+# Low draws no second view, Medium one snapshot per portal, High the view every frame
+# (one more scene a frame while a portal is in sight). High until a pick is saved.
+[[page.entry]]
+kind = "choice"
+label = "PORTAL VIEW"
+string_id = "OAG_SLIPSTREAM_QUALITY"
+setting = "mod.oag.slipstream.quality"
+values = ["low", "medium", "high"]
+default = "high"

@@ -46,7 +46,11 @@ fn a_holder_probes_every_tick_and_a_press_without_room_keeps_the_pickup() {
     race.event(fits(me, false));
     let refused = race.tick();
     assert_eq!(transits(&refused), 0);
-    assert!(!refused.iter().any(|c| matches!(c, Command::ClearPickup { .. })));
+    assert!(
+        !refused
+            .iter()
+            .any(|c| matches!(c, Command::ClearPickup { .. }))
+    );
 }
 
 #[test]
@@ -93,7 +97,10 @@ fn the_entry_opens_with_a_sound_and_starts_the_transit_hum_which_the_exit_stops(
     };
     assert_eq!(
         sounds(&sent),
-        [(SOUND_OPEN, SoundMode::Once), (SOUND_TRANSIT, SoundMode::Loop)]
+        [
+            (SOUND_OPEN, SoundMode::Once),
+            (SOUND_TRANSIT, SoundMode::Loop)
+        ]
     );
     *race.craft_mut(me) = Some(CraftRecord {
         pickup: Pickup::None,
@@ -106,7 +113,10 @@ fn the_entry_opens_with_a_sound_and_starts_the_transit_hum_which_the_exit_stops(
     race.event(Event::TransitEnd { slot: me });
     assert_eq!(
         sounds(&race.tick()),
-        [(SOUND_TRANSIT, SoundMode::Stop), (SOUND_EXIT, SoundMode::Once)]
+        [
+            (SOUND_TRANSIT, SoundMode::Stop),
+            (SOUND_EXIT, SoundMode::Once)
+        ]
     );
 }
 
@@ -161,7 +171,10 @@ fn the_view_fills_with_the_titles_colour_and_widens_for_the_whole_transit() {
         alphas.push(rgba.a);
     }
     assert_eq!(alphas[FILL_RAMP as usize + 2], 255, "full in the middle");
-    assert!(alphas[0] < 60 && *alphas.last().unwrap() < 60, "ramps at both ends");
+    assert!(
+        alphas[0] < 60 && *alphas.last().unwrap() < 60,
+        "ramps at both ends"
+    );
 }
 
 #[test]
@@ -210,7 +223,11 @@ fn a_queued_fire_is_dropped_when_the_portal_no_longer_fits() {
     race.event(fits(b, false));
     assert_eq!(transits(&race.tick()), 0);
     race.event(fits(b, true));
-    assert_eq!(transits(&race.tick()), 0, "the dropped fire is not remembered");
+    assert_eq!(
+        transits(&race.tick()),
+        0,
+        "the dropped fire is not remembered"
+    );
 }
 
 #[test]
@@ -235,4 +252,135 @@ fn pure_has_its_own_portal_effect_and_colour() {
     ] {
         assert_ne!(other.effect, pure.effect);
     }
+}
+
+/// Ticks of a portal's life for a person at 360 km/h (100 units a second) on a 4000 unit lap,
+/// with the player's QUALITY pick `option`, as the commands that are not the view.
+fn portal_commands(option: u8) -> (Vec<Command>, Vec<Command>) {
+    let me = slot(0);
+    let mut race = Race::<Slipstream>::new()
+        .with_craft(
+            me,
+            CraftRecord {
+                speed_kmh: 360.0,
+                ..holder(true)
+            },
+        )
+        .with_course(4000.0, me, Some(3900.0), 1)
+        .with_options([option, 0, 0, 0]);
+    race.event(Event::PickupFire { slot: me });
+    race.event(fits(me, true));
+    let mut all = race.tick();
+    *race.craft_mut(me) = Some(CraftRecord {
+        pickup: Pickup::None,
+        in_transit: true,
+        speed_kmh: 360.0,
+        ..holder(true)
+    });
+    for _ in 0..TRANSIT_TICKS {
+        all.extend(race.tick());
+    }
+    let (views, rest) = all
+        .into_iter()
+        .partition(|c| matches!(c, Command::PortalView { .. }));
+    (views, rest)
+}
+
+#[test]
+fn the_view_looks_from_the_entrance_to_the_exit_the_transit_will_land_at() {
+    let (views, _) = portal_commands(2);
+    // 30 units ahead of 3900, and two seconds of 100 units a second past the craft, round the lap.
+    let want = Command::PortalView {
+        slot: slot(0),
+        entrance: 3930.0,
+        exit: 100.0,
+        radius: VIEW_RADIUS,
+        update: ViewUpdate::Continuous,
+        generation: 1,
+    };
+    assert!(
+        views.len() >= 55,
+        "every tick the portal stands: {}",
+        views.len()
+    );
+    assert!(views.iter().all(|v| *v == want), "{:?}", views.first());
+}
+
+#[test]
+fn low_asks_for_no_view_medium_a_snapshot_high_every_frame_and_the_race_is_the_same() {
+    let (low, low_rest) = portal_commands(0);
+    let (medium, medium_rest) = portal_commands(1);
+    let (high, high_rest) = portal_commands(2);
+    assert!(low.is_empty(), "Low draws the shader's own surface");
+    let update = |views: &[Command]| match views.first() {
+        Some(Command::PortalView { update, .. }) => Some(*update),
+        _ => None,
+    };
+    assert_eq!(update(&medium), Some(ViewUpdate::Once));
+    assert_eq!(update(&high), Some(ViewUpdate::Continuous));
+    // The pick moves what is drawn and nothing else: the shader's scalar aside, every command
+    // is the same at the three.
+    let plain = |rest: Vec<Command>| -> Vec<Command> {
+        rest.into_iter()
+            .filter(|c| !matches!(c, Command::SetShaderParam { .. }))
+            .collect()
+    };
+    assert_eq!(plain(low_rest.clone()), plain(medium_rest.clone()));
+    assert_eq!(plain(medium_rest), plain(high_rest.clone()));
+    let scalar = |rest: &[Command]| {
+        rest.iter().find_map(|c| match c {
+            Command::SetShaderParam { value, .. } => Some(*value),
+            _ => None,
+        })
+    };
+    assert_eq!(
+        [scalar(&low_rest), scalar(&high_rest)],
+        [Some(0.0), Some(2.0)],
+        "the shader is told the quality"
+    );
+}
+
+#[test]
+fn every_person_sees_the_portal_a_craft_opened_and_no_view_without_a_fix() {
+    let (a, b, ai) = (slot(0), slot(1), slot(2));
+    let mut race = Race::<Slipstream>::new()
+        .with_craft(a, holder(true))
+        .with_craft(b, holder(true))
+        .with_craft(ai, holder(false))
+        .with_course(4000.0, a, Some(100.0), 1)
+        .with_options([2, 0, 0, 0]);
+    race.event(Event::PickupFire { slot: ai });
+    race.event(fits(ai, true));
+    race.tick();
+    let sent = race.tick();
+    let looking: Vec<Slot> = sent
+        .iter()
+        .filter_map(|c| match c {
+            Command::PortalView { slot, .. } => Some(*slot),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        looking,
+        [],
+        "the AI's craft has no fix, so there is nowhere to look"
+    );
+    let mut race = Race::<Slipstream>::new()
+        .with_craft(a, holder(true))
+        .with_craft(b, holder(true))
+        .with_craft(ai, holder(false))
+        .with_course(4000.0, ai, Some(100.0), 1)
+        .with_options([2, 0, 0, 0]);
+    race.event(Event::PickupFire { slot: ai });
+    race.event(fits(ai, true));
+    race.tick();
+    let looking: Vec<Slot> = race
+        .tick()
+        .iter()
+        .filter_map(|c| match c {
+            Command::PortalView { slot, .. } => Some(*slot),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(looking, [a, b], "both people, not the AI");
 }

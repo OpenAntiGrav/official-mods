@@ -20,11 +20,16 @@ default-enabled = false
 simulation = true
 api = 1
 memory_pages = 2
-# 8 slots of 2 bytes, the queue of 8, the slot in transit (guest `Portal`).
-state_bytes = 25
+# 8 slots of 2 bytes, the queue of 8, the slot in transit, the portal's two progresses and its
+# generation (guest `Portal`).
+state_bytes = 34
 
 [extension.rules]
 module = "ext/slipstream.wasm"
+
+# The portal's surface: the view through it, or its own animation (fx/portal.wgsl).
+[shaders]
+portal = "fx/portal.wgsl"
 
 # One portal per title, a tinted half disc (guest `Look::of` names them by their place in
 # this table's name order).
