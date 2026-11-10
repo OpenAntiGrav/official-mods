@@ -1,7 +1,7 @@
 # Slipstream (`oag.slipstream`)
 
 A pickup of its own, handed out by the weapon pads beside the title's weapons. Fire it and
-the craft goes through a portal and comes out about two seconds further along the circuit,
+the craft goes through a portal and comes out about six seconds further along the circuit,
 a little slower. It adds no game content: the icons are original art (`icons/README.md`), the
 portal and the tunnel are drawn by the mod's own shaders (`fx/portal.wgsl`,
 `fx/wormhole.wgsl`) and the sounds are synthesised by `src/synth_sounds.py`.
@@ -26,7 +26,7 @@ icon), Wipeout Pure, HD/Fury, Omega and 2048.
   portal closes and you keep the pickup. Other craft do not enter it.
 - **Transit** lasts one second from the entrance: the craft is out of the world (not drawn for
   anyone else, not collided with, not hit or locked, no steering, no thrust).
-- **Exit** two seconds of your speed (at the press) past the entrance along the circuit at 90 % of your speed, on
+- **Exit** six seconds of your speed (at the press) past the entrance along the circuit at 90 % of your speed, on
   the road's middle at flying height: no drop, you fly on from the first tick. Laps and
   the finish count through the jump: a jump over the line is a lap, or the finish, on the exit
   tick.
