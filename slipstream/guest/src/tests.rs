@@ -454,11 +454,11 @@ fn portal_commands(option: u8) -> (Vec<Command>, Vec<Command>) {
 #[test]
 fn the_view_looks_from_the_entrance_to_the_exit_the_transit_will_land_at() {
     let (views, _) = portal_commands(2);
-    // 30 units ahead of 3900, and six seconds of 100 units a second past that, round the lap.
+    // 30 units ahead of 3900, and four seconds of 100 units a second past that, round the lap.
     let want = |generation| Command::PortalView {
         slot: slot(0),
         entrance: 3930.0,
-        exit: Distance::Progress(530.0),
+        exit: Distance::Progress(330.0),
         radius: VIEW_RADIUS,
         update: ViewUpdate::Continuous,
         generation,
@@ -517,14 +517,14 @@ fn the_far_end_of_the_tunnel_looks_from_where_the_craft_stands() {
     assert!(
         seen[..opened]
             .iter()
-            .all(|v| *v == (3930.0, Distance::Progress(530.0), ViewUpdate::Once, 2)),
+            .all(|v| *v == (3930.0, Distance::Progress(330.0), ViewUpdate::Once, 2)),
         "the snapshot the portal opened with is held: {:?}",
         seen.first()
     );
     assert!(
         seen[opened..]
             .iter()
-            .all(|v| *v == (3934.0, Distance::Progress(530.0), ViewUpdate::Once, 3)),
+            .all(|v| *v == (3934.0, Distance::Progress(330.0), ViewUpdate::Once, 3)),
         "one more snapshot, from where it stands: {:?}",
         seen.last()
     );
@@ -656,18 +656,18 @@ fn the_craft_flies_to_the_portal_and_the_transit_starts_at_the_entrance_not_on_t
         );
     }
     let arrival = commands_of(&mut race, 3931.0);
-    // The exit stands 600 units on from the entrance at 3930: 4530 is 530 on the lap.
+    // The exit stands 400 units on from the entrance at 3930: 4330 is 330 on the lap.
     assert!(arrival.contains(&Command::Transit {
         slot: me,
         ticks: TRANSIT_TICKS,
-        distance: Distance::Units(599.0),
+        distance: Distance::Units(399.0),
         exit_factor: EXIT_FACTOR
     }));
     assert!(arrival.contains(&Command::ClearPickup { slot: me }));
     assert!(arrival.contains(&Command::FireModEffectAhead {
         slot: me,
         index: 3,
-        distance: Distance::Units(599.0)
+        distance: Distance::Units(399.0)
     }));
     assert!(arrival.contains(&Command::PlayModSound {
         slot: me,

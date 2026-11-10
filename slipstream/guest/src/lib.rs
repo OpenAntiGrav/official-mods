@@ -57,7 +57,7 @@ const APPROACH_LIMIT: u8 = 50;
 /// Ticks out of the world (1 s).
 const TRANSIT_TICKS: u16 = 60;
 /// The exit lies this many seconds ahead at the speed the craft has.
-const EXIT_SECONDS: f32 = 6.0;
+const EXIT_SECONDS: f32 = 4.0;
 /// The craft leaves at this share of its entry speed.
 const EXIT_FACTOR: f32 = 0.9;
 /// The vertical field of view's widening at its widest, in the tunnel, degrees.
