@@ -140,41 +140,191 @@ fn the_sound_indices_are_the_name_order_of_the_manifest() {
     assert_eq!(names, sorted, "listed in name order");
 }
 
-#[test]
-fn the_view_fills_with_the_titles_colour_and_widens_for_the_whole_transit() {
+/// The tunnel a tick sends a person's view: the fill's colour and the shader's `phase` and
+/// `speed`. `None` where it sends no fill.
+fn tunnel_of(commands: &[Command]) -> Option<(Rgba, f32, f32)> {
+    let rgba = commands.iter().find_map(|c| match c {
+        Command::ScreenFill { rgba, shader, .. } => {
+            assert_eq!(*shader, Some(SHADER_WORMHOLE), "the fill is the tunnel");
+            Some(*rgba)
+        }
+        _ => None,
+    })?;
+    let scalar = |index| {
+        commands.iter().find_map(|c| match c {
+            Command::SetShaderParam {
+                shader,
+                index: at,
+                value,
+                ..
+            } if *shader == SHADER_WORMHOLE && *at == index => Some(*value),
+            _ => None,
+        })
+    };
+    assert_eq!(scalar(PARAM_TRANSIT), Some(LAST));
+    assert_eq!(scalar(PARAM_TAIL), Some(f32::from(TAIL_TICKS)));
+    Some((rgba, scalar(PARAM_PHASE)?, scalar(PARAM_SPEED)?))
+}
+
+/// The widening of the field of view a tick sends.
+fn widening_of(commands: &[Command]) -> Option<f32> {
+    commands.iter().find_map(|c| match c {
+        Command::FovOffset { degrees, .. } => Some(*degrees),
+        _ => None,
+    })
+}
+
+/// A person's whole flight on a 4000 unit lap at 360 km/h: the press at 3900, 5 units a tick
+/// to the entrance at 3930, the transit, the exit at 324 km/h and the ticks after it. Each
+/// tick's commands.
+fn whole_flight() -> Vec<Vec<Command>> {
     let me = slot(0);
-    let mut race = Race::<Slipstream>::new()
-        .with_craft(me, holder(true))
-        .with_title(title!("wipeout-2048"));
+    let mut race = flier(3900.0).with_title(title!("wipeout-2048"));
     race.event(Event::PickupFire { slot: me });
     race.event(fits(me, true));
-    race.tick();
+    let mut ticks = vec![race.tick()];
+    let mut at = 3900.0;
+    loop {
+        at += 5.0;
+        ticks.push(commands_of(&mut race, at));
+        if transits(ticks.last().unwrap()) == 1 {
+            break;
+        }
+    }
     *race.craft_mut(me) = Some(CraftRecord {
         pickup: Pickup::None,
         in_transit: true,
+        speed_kmh: 360.0,
         ..holder(true)
     });
-    let mut alphas = Vec::new();
-    for _ in 0..TRANSIT_TICKS - 1 {
-        let tick = race.tick();
-        assert!(tick.contains(&Command::FovOffset {
-            slot: me,
-            degrees: FOV_JUMP
-        }));
-        let Some(Command::ScreenFill { rgba, .. }) = tick
-            .iter()
-            .find(|c| matches!(c, Command::ScreenFill { .. }))
-        else {
-            panic!("a fill every tick");
-        };
-        assert_eq!((rgba.r, rgba.g, rgba.b), (0x20, 0xE0, 0x70));
-        alphas.push(rgba.a);
+    for _ in 1..TRANSIT_TICKS {
+        ticks.push(race.tick());
     }
-    assert_eq!(alphas[FILL_RAMP as usize + 2], 255, "full in the middle");
+    *race.craft_mut(me) = Some(CraftRecord {
+        pickup: Pickup::None,
+        speed_kmh: 324.0,
+        ..holder(true)
+    });
+    race.event(Event::TransitEnd { slot: me });
+    for _ in 0..usize::from(TAIL_TICKS) + 3 {
+        ticks.push(race.tick());
+    }
+    ticks
+}
+
+#[test]
+fn the_tunnel_is_told_how_long_the_craft_has_been_through_and_how_fast_it_flies() {
+    let tunnels: Vec<_> = whole_flight().iter().map(|t| tunnel_of(t)).collect();
+    // The press, then five ticks short of the entrance at 5 units a tick over 30: no tunnel
+    // before the craft is at the portal.
+    let approach = tunnels.iter().take_while(|t| t.is_none()).count();
+    assert_eq!(approach, 6);
+    let flown: Vec<(Rgba, f32, f32)> = tunnels[approach..].iter().map_while(|t| *t).collect();
     assert!(
-        alphas[0] < 60 && *alphas.last().unwrap() < 60,
-        "ramps at both ends"
+        tunnels[approach + flown.len()..]
+            .iter()
+            .all(Option::is_none),
+        "one unbroken run, then nothing"
     );
+    for (rgba, ..) in &flown {
+        assert_eq!(
+            (rgba.r, rgba.g, rgba.b, rgba.a),
+            (0x20, 0xE0, 0x70, 255),
+            "2048's colour"
+        );
+    }
+    // From the entrance the ticks count: 0 to the last tick out of the world, then on from two
+    // past it, so no frame between two ticks shows the far side early.
+    let phases: Vec<f32> = flown.iter().map(|(_, phase, _)| *phase).collect();
+    let out_of_the_world: Vec<f32> = (0..TRANSIT_TICKS).map(f32::from).collect();
+    let back: Vec<f32> = (1..=TAIL_TICKS)
+        .map(|n| LAST + 1.0 + f32::from(n))
+        .collect();
+    assert_eq!(phases, [out_of_the_world, back].concat());
+    // 360 km/h is 100 units a second: the tunnel is drawn out and flown at that, and at the
+    // craft's own speed again once it is out.
+    let transit = usize::from(TRANSIT_TICKS);
+    assert!(
+        flown[..transit]
+            .iter()
+            .all(|(.., speed)| (speed - 100.0 / 60.0).abs() < 1e-4)
+    );
+    assert!(
+        flown[transit..]
+            .iter()
+            .all(|(.., speed)| (speed - 90.0 / 60.0).abs() < 1e-4)
+    );
+}
+
+#[test]
+fn the_field_of_view_rides_one_curve_with_no_step_at_the_entrance_or_the_exit() {
+    let flight = whole_flight();
+    let widening: Vec<f32> = flight.iter().filter_map(|t| widening_of(t)).collect();
+    assert_eq!(
+        widening.len(),
+        flight.len() - 1 - 3,
+        "from the tick after the press to the end of the tail"
+    );
+    let peak = widening.iter().copied().fold(0.0, f32::max);
+    assert!(
+        (peak - FOV_PEAK).abs() < 0.01,
+        "widest in the tunnel: {peak}"
+    );
+    let steepest = widening
+        .windows(2)
+        .map(|pair| (pair[1] - pair[0]).abs())
+        .fold(0.0, f32::max);
+    assert!(steepest < 2.5, "no tick moves it {steepest} degrees");
+    assert!(widening[0] < 1.0, "it starts from nothing: {}", widening[0]);
+    assert!(
+        *widening.last().unwrap() < 0.1,
+        "and is back there when the tunnel has gone: {:?}",
+        widening.last()
+    );
+    // Still wide on the exit tick: the road at the far end was drawn at this field.
+    let exit = widening.len() - usize::from(TAIL_TICKS);
+    assert!(widening[exit] > 8.0, "{}", widening[exit]);
+    assert!((widening[exit] - widening[exit - 1]).abs() < 1.0);
+}
+
+#[test]
+fn the_shaders_header_is_the_guests_scalars_in_their_places() {
+    // The defaults stand in for a view a scalar has not reached yet, so they are the guest's
+    // own numbers; `tail` is how long the shader takes to clear, and the guest sends the fill
+    // for as long.
+    let shader = include_str!("../../fx/wormhole.wgsl");
+    let named = |name: &str| format!("//! name = {name:?}");
+    let default = |name: &str| -> f32 {
+        let at = shader.find(&named(name)).expect(name);
+        shader[at..]
+            .lines()
+            .nth(1)
+            .and_then(|line| line.strip_prefix("//! default = "))
+            .and_then(|n| n.trim().parse().ok())
+            .expect("a default under the name")
+    };
+    assert_eq!(default("tail"), f32::from(TAIL_TICKS));
+    assert_eq!(default("transit"), LAST);
+    assert_eq!(default("phase"), -1.0);
+    let order: Vec<usize> = ["phase", "transit", "speed", "tail"]
+        .iter()
+        .map(|name| shader.find(&named(name)).unwrap())
+        .collect();
+    assert!(order.windows(2).all(|pair| pair[0] < pair[1]));
+    assert_eq!(
+        [PARAM_PHASE, PARAM_TRANSIT, PARAM_SPEED, PARAM_TAIL],
+        [0, 1, 2, 3],
+        "the scalars by their place in the header"
+    );
+}
+
+#[test]
+fn another_mods_transit_ending_clears_no_tunnel() {
+    let me = slot(0);
+    let mut race = Race::<Slipstream>::new().with_craft(me, holder(true));
+    race.event(Event::TransitEnd { slot: me });
+    assert_eq!(tunnel_of(&race.tick()), None);
+    assert_eq!(tunnel_of(&race.tick()), None);
 }
 
 #[test]
@@ -271,7 +421,7 @@ fn flier(at: f32) -> Race<Slipstream> {
 /// Moves the craft on the lap to `at` without touching anything else.
 fn move_to(race: &mut Race<Slipstream>, at: f32) {
     let me = slot(0);
-    let record = race.craft_mut(me).clone();
+    let record = *race.craft_mut(me);
     *race = std::mem::take(race).with_course(4000.0, me, Some(at), 1);
     *race.craft_mut(me) = record;
 }
@@ -298,7 +448,8 @@ fn portal_commands(option: u8) -> (Vec<Command>, Vec<Command>) {
         speed_kmh: 360.0,
         ..holder(true)
     });
-    for _ in 0..TRANSIT_TICKS {
+    // The exit's `TransitEnd` comes on the tick after these.
+    for _ in 1..TRANSIT_TICKS {
         all.extend(race.tick());
     }
     let (views, rest) = all
@@ -311,20 +462,79 @@ fn portal_commands(option: u8) -> (Vec<Command>, Vec<Command>) {
 fn the_view_looks_from_the_entrance_to_the_exit_the_transit_will_land_at() {
     let (views, _) = portal_commands(2);
     // 30 units ahead of 3900, and two seconds of 100 units a second past that, round the lap.
-    let want = Command::PortalView {
+    let want = |generation| Command::PortalView {
         slot: slot(0),
         entrance: 3930.0,
-        exit: 130.0,
+        exit: Distance::Progress(130.0),
         radius: VIEW_RADIUS,
         update: ViewUpdate::Continuous,
-        generation: 1,
+        generation,
     };
     assert!(
         views.len() >= 60,
         "every tick the portal stands: {}",
         views.len()
     );
-    assert!(views.iter().all(|v| *v == want), "{:?}", views.first());
+    // At High the craft going through looks from where it stands (the entrance, which it
+    // reached exactly) for its whole transit, on the portal's second generation.
+    let through = views.len() - usize::from(TRANSIT_TICKS) + 1;
+    let wrong = views[..through].iter().position(|v| *v != want(2));
+    assert_eq!(wrong, None, "{:?}", wrong.map(|at| views[at]));
+    assert!(
+        views[through..].iter().all(|v| *v == want(3)),
+        "{:?}",
+        views.last()
+    );
+}
+
+#[test]
+fn the_far_end_of_the_tunnel_looks_from_where_the_craft_stands() {
+    let me = slot(0);
+    let mut race = flier(3900.0).with_options([1, 0, 0, 0]);
+    race.event(Event::PickupFire { slot: me });
+    race.event(fits(me, true));
+    race.tick();
+    // It overshoots the entrance at 3930 by 4 units and is frozen there.
+    assert_eq!(transits(&commands_of(&mut race, 3934.0)), 1);
+    let record = CraftRecord {
+        pickup: Pickup::None,
+        in_transit: true,
+        speed_kmh: 360.0,
+        ..holder(true)
+    };
+    *race.craft_mut(me) = Some(record);
+    let view = |commands: &[Command]| {
+        commands.iter().find_map(|c| match c {
+            Command::PortalView {
+                entrance,
+                exit,
+                update,
+                generation,
+                ..
+            } => Some((*entrance, *exit, *update, *generation)),
+            _ => None,
+        })
+    };
+    let mut seen = Vec::new();
+    for _ in 1..TRANSIT_TICKS {
+        seen.push(view(&race.tick()).expect("a view every tick"));
+    }
+    // Medium: the camera is on its seat `SEATED` ticks in, and the snapshot waits for it.
+    let opened = usize::from(SEATED) - 1;
+    assert!(
+        seen[..opened]
+            .iter()
+            .all(|v| *v == (3930.0, Distance::Progress(130.0), ViewUpdate::Once, 2)),
+        "the snapshot the portal opened with is held: {:?}",
+        seen.first()
+    );
+    assert!(
+        seen[opened..]
+            .iter()
+            .all(|v| *v == (3934.0, Distance::Progress(130.0), ViewUpdate::Once, 3)),
+        "one more snapshot, from where it stands: {:?}",
+        seen.last()
+    );
 }
 
 #[test]
@@ -350,7 +560,9 @@ fn low_asks_for_no_view_medium_a_snapshot_high_every_frame_and_the_race_is_the_s
     assert_eq!(plain(medium_rest), plain(high_rest.clone()));
     let scalar = |rest: &[Command]| {
         rest.iter().find_map(|c| match c {
-            Command::SetShaderParam { value, .. } => Some(*value),
+            Command::SetShaderParam { shader, value, .. } if *shader == SHADER_PORTAL => {
+                Some(*value)
+            }
             _ => None,
         })
     };
@@ -444,11 +656,10 @@ fn the_craft_flies_to_the_portal_and_the_transit_starts_at_the_entrance_not_on_t
                 .any(|c| matches!(c, Command::PortalView { .. })),
             "the firer sees the window at {at}"
         );
+        assert_eq!(tunnel_of(&flying), None, "no tunnel before the entrance");
         assert!(
-            !flying
-                .iter()
-                .any(|c| matches!(c, Command::ScreenFill { .. })),
-            "no fill before the entrance"
+            widening_of(&flying).is_some(),
+            "the field is widening at {at}"
         );
     }
     let arrival = commands_of(&mut race, 3931.0);
