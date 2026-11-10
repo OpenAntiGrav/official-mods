@@ -162,7 +162,6 @@ fn tunnel_of(commands: &[Command]) -> Option<(Rgba, f32, f32)> {
         })
     };
     assert_eq!(scalar(PARAM_TRANSIT), Some(LAST));
-    assert_eq!(scalar(PARAM_TAIL), Some(f32::from(TAIL_TICKS)));
     Some((rgba, scalar(PARAM_PHASE)?, scalar(PARAM_SPEED)?))
 }
 
@@ -241,18 +240,12 @@ fn the_tunnel_is_told_how_long_the_craft_has_been_through_and_how_fast_it_flies(
         .map(|n| LAST + 1.0 + f32::from(n))
         .collect();
     assert_eq!(phases, [out_of_the_world, back].concat());
-    // 360 km/h is 100 units a second: the tunnel is drawn out and flown at that, and at the
-    // craft's own speed again once it is out.
-    let transit = usize::from(TRANSIT_TICKS);
+    // 360 km/h is 100 units a second: the tunnel is flown at what the craft went in at, to
+    // the end, whatever it flies once it is out.
     assert!(
-        flown[..transit]
+        flown
             .iter()
             .all(|(.., speed)| (speed - 100.0 / 60.0).abs() < 1e-4)
-    );
-    assert!(
-        flown[transit..]
-            .iter()
-            .all(|(.., speed)| (speed - 90.0 / 60.0).abs() < 1e-4)
     );
 }
 
@@ -290,9 +283,9 @@ fn the_field_of_view_rides_one_curve_with_no_step_at_the_entrance_or_the_exit() 
 #[test]
 fn the_shaders_header_is_the_guests_scalars_in_their_places() {
     // The defaults stand in for a view a scalar has not reached yet, so they are the guest's
-    // own numbers; `tail` is how long the shader takes to clear, and the guest sends the fill
-    // for as long.
+    // own numbers, and the tunnel is a backdrop: the craft is drawn in front of it.
     let shader = include_str!("../../fx/wormhole.wgsl");
+    assert!(shader.contains("//! fill = \"backdrop\""));
     let named = |name: &str| format!("//! name = {name:?}");
     let default = |name: &str| -> f32 {
         let at = shader.find(&named(name)).expect(name);
@@ -303,19 +296,22 @@ fn the_shaders_header_is_the_guests_scalars_in_their_places() {
             .and_then(|n| n.trim().parse().ok())
             .expect("a default under the name")
     };
-    assert_eq!(default("tail"), f32::from(TAIL_TICKS));
     assert_eq!(default("transit"), LAST);
     assert_eq!(default("phase"), -1.0);
-    let order: Vec<usize> = ["phase", "transit", "speed", "tail"]
+    let order: Vec<usize> = ["phase", "transit", "speed"]
         .iter()
         .map(|name| shader.find(&named(name)).unwrap())
         .collect();
     assert!(order.windows(2).all(|pair| pair[0] < pair[1]));
     assert_eq!(
-        [PARAM_PHASE, PARAM_TRANSIT, PARAM_SPEED, PARAM_TAIL],
-        [0, 1, 2, 3],
+        [PARAM_PHASE, PARAM_TRANSIT, PARAM_SPEED],
+        [0, 1, 2],
         "the scalars by their place in the header"
     );
+    // The portal's radius is one number in three places.
+    assert!(shader.contains(&format!("const WH_RADIUS: f32 = {RADIUS:?};")));
+    let effect = include_str!("../../fx/portal_pulse.toml");
+    assert!(effect.contains(&format!("[0.9, {RADIUS:?}]")));
 }
 
 #[test]

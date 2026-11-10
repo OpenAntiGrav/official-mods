@@ -1,4 +1,5 @@
 //! blend = "alpha"
+//! fill = "backdrop"
 //!
 //! [[param]]
 //! name = "phase"
@@ -11,61 +12,53 @@
 //! [[param]]
 //! name = "speed"
 //! default = 2.0
-//!
-//! [[param]]
-//! name = "tail"
-//! default = 24.0
 
-// The short tunnel between the two portals, over the view of the craft flying it. Going through
-// the entrance draws the portal's border out behind the craft, as fast as the craft flies, into
-// a tunnel's wall; the exit stands at the far end of it, the road there seen through it at its
-// own size, like a window that is only further off. Then the craft closes on the far end and
-// flies out through it.
+// The portal is a tunnel: its half disc, standing on the road, drawn out along the way the
+// craft flies. The craft goes in through the mouth and the camera after it, the track still
+// there round the mouth until the camera is through; the exit moves back down the tunnel as
+// the craft goes in, then the craft closes on it and flies out through it.
+//
+// A backdrop: drawn behind the view's own craft, which the engine keeps drawing in front of
+// its camera while it is out of the world, and in place of the world wherever the tunnel is
+// at least half there. Its glow, and what is left of it once the craft is out, are under that
+// and hide nothing.
+// The tunnel is real geometry round that craft (`craft_frame`), cut by each texel's ray
+// (`eye_ray`): an arch of `WH_RADIUS` over a floor `WH_FLOOR` under the craft, from the mouth
+// behind it to the far end ahead of it.
 //
 // The guest (guest/src/lib.rs, `Flight`) says where the flight is:
 //
 // - `phase`: ticks since the entrance, 0 to `transit` while the craft is out of the world and
-//   `transit + 2` on once it is out (no tick is `transit + 1`), for `tail` ticks.
-// - `speed`: what the craft flies, units a tick. Everything spatial here is that speed: how
-//   fast the far end draws away, how fast the wall runs past, how fast the far end comes up.
+//   `transit + 2` on once it is out (no tick is `transit + 1`), while what is left of the
+//   tunnel falls behind.
+// - `speed`: what the craft flies, units a tick: how fast the mouth falls behind, the far end
+//   moves back, and the wall runs past.
 //
-// The far end shows the engine's view through the portal pair where this view has one, and
-// light where it has none (PORTAL VIEW Low, the second seat of a split). The engine seats the
-// camera of a craft in a transit on the framing it has at the exit, so that picture drawn at its
-// own size is the one the camera has on the exit tick: there is no cut to cover.
+// The far end shows the engine's view through the portal pair where this view has one, at its
+// own size, and light where it has none (PORTAL VIEW Low, the second seat of a split). The
+// engine frames that view from the camera's seat at the exit, so on the last tick out of the
+// world it is the picture the camera has a tick later, and the far end is then where the exit
+// portal stands round the craft: there is no cut.
 //
 // What moves with the ticks reads `phase + input.between`, so it does not step at the tick on a
 // display faster than the simulation.
 
 const WH_TAU: f32 = 6.2831853;
-// The tunnel's middle, in half heights from the view's, y down: a little above it, where the
-// road ahead is.
-const WH_CENTRE: vec2<f32> = vec2<f32>(0.0, -0.1);
-// The far end's radius when it is as near as a portal is to the camera of a craft at it, half
-// heights: at the entrance, and again on the last tick out of the world.
-const WH_MOUTH: f32 = 0.9;
-// Its radius once the tunnel is drawn out: it gets no smaller than this, only further.
-const WH_HOLD: f32 = 0.5;
-// How far a chase camera stands behind its craft, units: the far end is at `WH_MOUTH` from there.
-const WH_CAMERA: f32 = 14.0;
-// Ticks the tunnel takes to come up over the view at the entrance.
-const WH_IN: f32 = 3.0;
+// The portal's radius, units: `RADIUS` of the guest and `size` of fx/portal_<title>.toml.
+const WH_RADIUS: f32 = 12.0;
+// How far under the craft the tunnel's floor is, units: a craft flies 3 off the road and the
+// portal stands half a unit off it.
+const WH_FLOOR: f32 = 2.5;
+// Ticks the exit moves back for, at the craft's speed, before the craft starts to close on it.
+const WH_BACK: f32 = 10.0;
 // Units between two of the rings that run down the wall.
 const WH_RINGS: f32 = 12.0;
-// How much light stands in the far end as the craft reaches it, most in its middle, where the
-// craft comes out of it.
-const WH_FLASH: f32 = 0.6;
-
-fn wh_smooth(x: f32) -> f32 {
-    let t = clamp(x, 0.0, 1.0);
-    return t * t * (3.0 - 2.0 * t);
-}
 
 fn wh_hash(cell: vec2<f32>) -> f32 {
     return fract(sin(dot(cell, vec2<f32>(127.1, 311.7))) * 43758.5453);
 }
 
-// Value noise that closes on itself every `wrap` cells along x: round the tunnel.
+// Value noise that closes on itself every `wrap` cells along x.
 fn wh_noise(at: vec2<f32>, wrap: f32) -> f32 {
     let cell = floor(at);
     let f = fract(at);
@@ -79,92 +72,131 @@ fn wh_noise(at: vec2<f32>, wrap: f32) -> f32 {
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
-// The wall at `angle` round the tunnel, `depth` units ahead of the eye and `run` units along
-// the border as it flies past, `far` being 1 at the far end and less towards the eye: the
-// portal's rim (fx/portal.wgsl's band and arcs) drawn out along the tunnel, with rings and
-// streaks to fly by.
-fn wh_wall(angle: f32, depth: f32, run: f32, far: f32, time: f32, tint: vec3<f32>) -> vec3<f32> {
-    let arcs = 0.5 + 0.5 * sin(angle * 7.0 + time * 1.5 + depth * 0.04);
-    let band = mix(tint * 1.1, vec3<f32>(1.0), 0.5 * arcs * arcs);
+// The smaller of two lengths, with no corner where they cross.
+fn wh_least(a: f32, b: f32) -> f32 {
+    return pow(pow(max(a, 0.0) + 0.01, -4.0) + pow(max(b, 0.0) + 0.01, -4.0), -0.25);
+}
+
+// How far outside the portal's outline a point of its plane is, units: negative inside the
+// half disc, `at` being across the road and up from the floor.
+fn wh_outside(at: vec2<f32>) -> f32 {
+    return max(length(at) - WH_RADIUS, -at.y);
+}
+
+// The tunnel's wall or floor at `at` (across, up from the floor, ahead of the craft), `run`
+// being how far along the border that point is as it flies past: the portal's rim
+// (fx/portal.wgsl's band and arcs) drawn out along the tunnel, with rings to fly by.
+fn wh_wall(at: vec3<f32>, on_floor: bool, run: f32, time: f32, tint: vec3<f32>) -> vec3<f32> {
     let ring = pow(0.5 + 0.5 * cos(WH_TAU * run / WH_RINGS), 10.0);
-    let streak = wh_noise(vec2<f32>(angle / WH_TAU * 48.0, run / 36.0), 48.0);
-    let fine = wh_noise(vec2<f32>(angle / WH_TAU * 96.0 + 7.0, run / 14.0), 96.0);
+    // The seam where the arch stands on the floor.
+    let seam = exp(-(WH_RADIUS - abs(at.x)) * (WH_RADIUS - abs(at.x)) / 0.5) * exp(-at.y * at.y / 0.5);
+    if on_floor {
+        let lane = exp(-at.x * at.x / 0.08) + 0.5 * exp(-(abs(at.x) - 6.0) * (abs(at.x) - 6.0) / 0.05);
+        let grain = wh_noise(vec2<f32>(at.x * 1.5 + 64.0, run / 9.0), 128.0);
+        let shade = 0.05 + 0.1 * grain * grain + 0.4 * ring + 0.35 * lane;
+        // The craft's engines light the floor behind it.
+        let wake = exp(-at.x * at.x / 3.0) * smoothstep(-16.0, -3.0, at.z) * (1.0 - smoothstep(-3.0, 1.0, at.z));
+        return tint * (shade + 0.5 * wake) + vec3<f32>(seam * 0.6 + 0.25 * wake);
+    }
+    return wh_arch(at, ring, seam, run, time, tint);
+}
+
+// The arch's share of `wh_wall`.
+fn wh_arch(at: vec3<f32>, ring: f32, seam: f32, run: f32, time: f32, tint: vec3<f32>) -> vec3<f32> {
+    let turn = atan2(at.y, at.x) / WH_TAU;
+    let arcs = 0.5 + 0.5 * sin(turn * WH_TAU * 7.0 + time * 1.5 + run * 0.04);
+    let band = mix(tint * 1.1, vec3<f32>(1.0), 0.5 * arcs * arcs);
+    let streak = wh_noise(vec2<f32>(turn * 96.0, run / 30.0), 96.0);
+    let fine = wh_noise(vec2<f32>(turn * 192.0 + 7.0, run / 11.0), 192.0);
     let shade = 0.1 + 0.22 * streak * streak + 0.16 * fine * fine * fine + 0.8 * ring;
-    // The light is at the far end.
-    let lit = band * shade * mix(0.5, 1.0, far);
-    return lit + mix(tint, vec3<f32>(1.0), 0.6) * 0.25 * pow(far, 10.0);
+    return band * shade + vec3<f32>(seam * 0.6);
 }
 
 fn mod_fragment(input: ModInput) -> vec4<f32> {
-    // The view's shape, from how fast `uv` crosses a texel each way.
-    let aspect = abs(dpdy(input.uv.y)) / max(abs(dpdx(input.uv.x)), 0.000001);
-    let q = (input.uv - vec2<f32>(0.5)) * 2.0;
-    let off = vec2<f32>(q.x * aspect, q.y) - WH_CENTRE;
-    let r = length(off);
-
     let tint = input.colour.rgb;
     let hot = mix(tint, vec3<f32>(1.0), 0.8);
     let transit = param_transit();
     let speed = max(param_speed(), 0.05);
-    let tail = max(param_tail(), 1.0);
     let ticks = max(param_phase() + input.between, 0.0);
     // Ticks out of the world, and ticks since coming out.
     let gone = min(ticks, transit);
     let since = max(ticks - transit - 1.0, 0.0);
     let is_out = ticks > transit + 0.5;
 
-    // The far end's radius. The border is drawn out behind the craft at the craft's speed, so
-    // the far end draws away as a ring does that one flies from; it stops at `WH_HOLD`; and it
-    // comes up as a ring does that one flies at, to `WH_MOUTH` on the last tick out of the world
-    // and on past the screen's edge after it.
-    let drawn = speed * gone;
-    let to_go = speed * (transit - gone - since);
-    let leaving = WH_MOUTH / (1.0 + drawn / WH_CAMERA);
-    let coming = WH_MOUTH / max(1.0 + to_go / WH_CAMERA, 0.02);
-    let mouth = pow(pow(leaving, 6.0) + pow(coming, 6.0) + pow(WH_HOLD, 6.0), 1.0 / 6.0);
-    let edge = 0.02 + 0.03 * mouth;
-    let inside = 1.0 - smoothstep(mouth - edge, mouth, r);
+    // The tunnel's own axes, from the craft: across, up from the floor, ahead.
+    let craft = craft_frame();
+    let across = craft[0].xyz;
+    let up = craft[1].xyz;
+    let ahead = -craft[2].xyz;
+    let ray = eye_ray(input.screen_uv);
+    let eye = vec3<f32>(-dot(craft[3].xyz, across), WH_FLOOR - dot(craft[3].xyz, up), -dot(craft[3].xyz, ahead));
+    let dir = vec3<f32>(dot(ray, across), dot(ray, up), dot(ray, ahead));
 
-    // The tunnel comes up over the world at the entrance and is gone in the tail.
-    let up = wh_smooth(gone / WH_IN);
-    let fading = 1.0 - smoothstep(0.15, 0.8, since / tail);
+    // The mouth falls behind the craft as fast as the craft flies. The exit moves back ahead
+    // of it at that speed for `WH_BACK` ticks, then the craft closes on it at a steady rate and
+    // is at it on the last tick out of the world; after that it falls behind too.
+    let flown = speed * (gone + since);
+    // The frame is the craft's on its exit tick carried back, a tick's flight past the portal.
+    let mouth = -flown - speed;
+    let closing = speed * WH_BACK * (transit - gone) / max(transit - WH_BACK, 1.0);
+    let far = select(wh_least(speed * gone, closing) - 0.01, -speed * since, is_out);
 
-    // The wall, from the far end out to the eye. The far end is as far off as the border has
-    // been drawn out, or as there is left to fly: its size holds while that grows, and the
-    // rings crowding towards it are what says it is further.
-    let ahead = pow(pow(drawn + 0.01, -4.0) + pow(max(to_go, 0.0) + 0.01, -4.0), -0.25);
-    let far = mouth / max(r, mouth);
-    let depth = (WH_CAMERA + ahead) * far;
-    let run = depth + speed * (gone + since);
-    let walls_rgb = wh_wall(atan2(off.y, off.x), depth, run, far, input.time, tint)
-        * mix(1.0, 0.6, smoothstep(1.2, 2.4, r));
-    let walls_a = up * fading;
-
-    // What stands in the far end.
-    var middle_rgb = hot;
-    var middle_a = up;
-    let flash = WH_FLASH * (0.15 + 0.85 * exp(-r * r * 7.0));
-    let nearing = smoothstep(6.0, 0.0, transit - gone);
-    if is_out {
-        // The craft is through: the world is there, and the light it came out of, dying.
-        middle_a = flash * exp(-since / 5.0) * (1.0 - wh_smooth(since / tail));
-    } else if engine_texture_bound() {
-        // The road at the exit, at its own size.
-        middle_rgb = mix(engine_texture(input.screen_uv).rgb, hot, flash * nearing);
-    } else {
-        // No picture of the exit: light at the end of the tunnel, whiter as it comes up.
-        let glow = 0.5 + 0.5 * exp(-r * r / (mouth * mouth) * 1.5);
-        middle_rgb = mix(hot * glow, vec3<f32>(1.0), 0.25 + 0.75 * nearing);
+    // Where the ray comes into the tunnel: through the mouth, for an eye still before it.
+    var start = eye;
+    var entry = -1.0;
+    if eye.z < mouth {
+        if dir.z <= 0.0 {
+            return vec4<f32>(0.0);
+        }
+        start = eye + dir * ((mouth - eye.z) / dir.z);
+        entry = wh_outside(start.xy);
+        // The mouth's rim stands a little outside the outline too.
+        if entry > 1.0 {
+            return vec4<f32>(0.0);
+        }
     }
+    let rim = exp(-entry * entry / 0.12) * step(-0.5, entry);
+    let through = 1.0 - smoothstep(-0.08, 0.08, entry);
 
-    // The two side by side, then the far end's bright rim over both.
-    let base_a = walls_a * (1.0 - inside) + middle_a * inside;
-    let base_rgb = (walls_rgb * walls_a * (1.0 - inside) + middle_rgb * middle_a * inside)
-        / max(base_a, 0.0001);
-    let width = 0.025 + 0.035 * mouth;
-    let ring = exp(-(r - mouth) * (r - mouth) / (width * width));
-    let rim_a = ring * up * (1.0 - wh_smooth(since / (tail * 0.7))) * 0.85;
-    let alpha = rim_a + base_a * (1.0 - rim_a);
-    let rgb = (hot * rim_a + base_rgb * base_a * (1.0 - rim_a)) / max(alpha, 0.0001);
-    return vec4<f32>(rgb, alpha);
+    // Then where it ends: on the floor, on the arch, or at the far end.
+    let base = start.xy;
+    let slope = dir.xy;
+    let a = max(dot(slope, slope), 0.000001);
+    let b = dot(base, slope);
+    let c = dot(base, base) - WH_RADIUS * WH_RADIUS;
+    let to_arch = (-b + sqrt(max(b * b - a * c, 0.0))) / a;
+    let to_floor = select(1.0e9, start.y / max(-dir.y, 0.000001), dir.y < 0.0);
+    let to_wall = min(to_arch, to_floor);
+    let to_far = select(1.0e9, max(far - start.z, 0.0) / max(dir.z, 0.000001), dir.z > 0.0);
+
+    var rgb = hot;
+    var alpha = through;
+    if to_far <= to_wall {
+        // The far end: the exit.
+        let at = start + dir * to_far;
+        let edge = exp(-wh_outside(at.xy) * wh_outside(at.xy) / 0.25);
+        if is_out {
+            // The craft is through and the world is there: only the rim it flew out of, going.
+            alpha = through * edge * 0.45 * exp(-since * 0.5);
+        } else if engine_texture_bound() {
+            rgb = mix(engine_texture(input.screen_uv).rgb, hot, edge * 0.85);
+        } else {
+            let glow = 0.55 + 0.45 * exp(-dot(at.xy, at.xy) / (WH_RADIUS * WH_RADIUS) * 2.0);
+            rgb = mix(hot * glow, hot, edge * 0.85);
+        }
+    } else {
+        let at = start + dir * to_wall;
+        // The wall ahead of the craft is drawn as long as the flight still is: the exit holds
+        // its size while that is long, and the rings crowding towards it say how far it is.
+        let whole = max(far, wh_least(speed * gone, speed * (transit - gone)));
+        let drawn = select(at.z, at.z / max(far, 0.01) * whole, at.z > 0.0 && !is_out);
+        let wall = wh_wall(at, to_floor < to_arch, drawn + flown, input.time, tint);
+        // Light from the far end along the last of the wall, while the exit is ahead.
+        let lit = exp(-(far - at.z) * (far - at.z) / 6.0) * exp(-since);
+        rgb = wall * (0.75 + 0.5 * lit) + hot * lit * 0.4;
+        // What is left of the tunnel behind the craft once it is out goes as it falls behind.
+        alpha = through * select(1.0, 0.45 * exp(-since * 0.4), is_out);
+    }
+    let seen = max(alpha, rim * 0.9);
+    return vec4<f32>(mix(rgb, hot, rim * 0.9 * (1.0 - alpha * 0.2)), seen);
 }

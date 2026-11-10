@@ -30,15 +30,16 @@ icon), Wipeout Pure, HD/Fury, Omega and 2048.
   the road's middle at flying height: no drop, you fly on from the first tick. Laps and
   the finish count through the jump: a jump over the line is a lap, or the finish, on the exit
   tick.
-- **What you see of your own flight** is a short tunnel, flown in one unbroken move
-  (`fx/wormhole.wgsl`, the guest's `Flight`). Going through the entrance draws the portal's
-  border out behind you, as fast as you fly, into the tunnel's wall. The exit stands at the
-  far end: the road there seen through it at its own size, a window that gets no smaller,
-  only further off, as the rings on the wall crowd towards it. Then it comes up, as fast as
-  you fly, and you fly out through it: its picture on the last tick is the one your camera
-  has on the exit tick, so there is no cut, only the light your craft comes out of. The
-  field of view rides one curve from the approach to 24 ticks after the exit, 24 degrees at
-  its widest.
+- **What you see of your own flight**: the portal is a tunnel (`fx/wormhole.wgsl`, the
+  guest's `Flight`). Its half disc is drawn out along the way you fly, an arch over a floor.
+  Your craft goes in through the mouth, still on screen, and the camera after it; the track is
+  there round the mouth until the camera is through. The exit moves back down the tunnel as you
+  go in, for a sixth of a second at your speed, with the road there seen through it at its own
+  size. Then you close on it at a steady rate and fly out through it: on the last tick it
+  stands where the exit portal does and its picture is the one your camera has a tick later,
+  so there is no cut. The field of view rides one curve from the approach to 24 ticks after
+  the exit, 24 degrees at its widest. Your craft has no exhaust in the tunnel: the engine
+  draws its hull there, not the effects of a craft in the world.
 - **One portal at a time.** A fire while another craft is in transit waits in a queue and
   runs when that transit ends, if the portal still fits then.
 
@@ -54,18 +55,18 @@ icon), Wipeout Pure, HD/Fury, Omega and 2048.
   writes `sounds/*.wav` (standard library only, seeded, MIT OR Apache-2.0), peaks between
   -6 and -11 dBFS. Real sounds replace the three files under the same names.
 
-![In transit on Wipeout Pulse: the tunnel in the Pulse portal colour, the road at the exit at its far end.](in-transit-pulse.png)
+![In transit on Wipeout Pulse: the craft in the tunnel, in the Pulse portal colour, the road at the exit at its far end.](in-transit-pulse.png)
 
 ![In transit on Wipeout HD: HD's own portal colour, and the icon in HD's pickup frame.](in-transit-hd.png)
 
 ## Tuning
 
 Every number is in `guest/src/lib.rs` (distance, radius, transit ticks, exit factor, the field
-of view's curve, how long the tunnel takes to clear) and is **chosen, not measured**; the odds
-are in `oag-mod.toml`. The look is `Look::of` and `fx/`: the tunnel's shape (how wide the far
-end holds, how far apart the wall's rings are, the light at the exit) is the constants at the
-top of `fx/wormhole.wgsl`, and its pace is your craft's speed; the portal's opening is the
-curves in `fx/portal_<title>.toml`. A later engine piece draws a real portal, and only those change
+of view's curve) and is **chosen, not measured**; the odds are in `oag-mod.toml`. The look is
+`Look::of` and `fx/`: the tunnel's shape (its radius, which is the portal's, how far under the
+craft its floor is, how long the exit moves back for, how far apart the wall's rings are) is
+the constants at the top of `fx/wormhole.wgsl`, and its pace is your craft's speed; the
+portal's opening is the curves in `fx/portal_<title>.toml`. A later engine piece draws a real portal, and only those change
 then.
 
 Rebuild after changing the guest: `guest/build.sh` (needs `rustup target add

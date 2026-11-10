@@ -14,12 +14,12 @@
 //!   course fix the craft goes through on the press.
 //! - **Transit**: `TRANSIT_TICKS` out of the world, landing at the exit the portal looked out
 //!   on, `EXIT_SECONDS` of the entry speed past the entrance, at `EXIT_FACTOR` of its speed.
-//! - **The flight**, a person's own view of it (`Flight`, `fx/wormhole.wgsl`): a short tunnel.
-//!   Going through the entrance draws the portal's border out behind the craft, as fast as the
-//!   craft flies, into the tunnel's wall; the exit stands at the far end with the road there
-//!   seen through it at its own size; the craft closes on it and flies out through it, and the
-//!   tunnel is gone in the ticks after. The field of view rides one curve from the approach to
-//!   the end of that, with no step at the entrance or the exit.
+//! - **The flight**, a person's own view of it (`Flight`, `fx/wormhole.wgsl`): the portal is
+//!   a tunnel, its half disc drawn out along the way the craft flies. The craft goes in
+//!   through the mouth, still drawn, its camera after it; the exit moves back down the tunnel
+//!   as it goes in, with the road there seen through it at its own size; then the craft closes
+//!   on it and flies out through it. The field of view rides one curve from the approach to
+//!   the ticks after the exit, with no step at either end.
 //! - **One at a time**: a race has one active portal pair. A fire requested while another craft
 //!   is in transit waits in a queue and runs when that transit ends, if the portal still fits.
 //!
@@ -71,7 +71,8 @@ const FOV_FALL: u16 = 18;
 /// through on the exit's framing: the ease it takes and the spring behind it. A snapshot of
 /// the exit taken from here is the picture the camera has at the exit.
 const SEATED: u16 = 16;
-/// Ticks after the exit the tunnel takes to clear the view.
+/// Ticks after the exit the field takes to settle; what is left of the tunnel has fallen
+/// behind well inside them.
 const TAIL_TICKS: u8 = 24;
 /// The last tick out of the world, counted from the entrance: the tick before the exit.
 const LAST: f32 = (TRANSIT_TICKS - 1) as f32;
@@ -88,7 +89,6 @@ const SHADER_WORMHOLE: u16 = 1;
 const PARAM_PHASE: u8 = 0;
 const PARAM_TRANSIT: u8 = 1;
 const PARAM_SPEED: u8 = 2;
-const PARAM_TAIL: u8 = 3;
 /// A snapshot is taken again when this changes: a portal takes two, one as it opens and one
 /// for the far end of its tunnel once the camera is seated, up to the engine's cap.
 const GENERATIONS: u8 = 64;
@@ -140,7 +140,7 @@ impl Look {
 }
 
 oag_ext::blob! {
-    /// One slot's account (3 bytes).
+    /// One slot's account (7 bytes).
     #[derive(Clone, Copy, Default)]
     pub struct Memory {
         /// The last answer to its `probe_clearance`.
@@ -149,6 +149,8 @@ oag_ext::blob! {
         pub left: u8,
         /// Ticks since it came out, while the tunnel clears its view; 0 when it has.
         pub after: u8,
+        /// What it went in at, units a tick: its tunnel is drawn at that to the end.
+        pub pace: f32,
     }
 }
 
@@ -271,8 +273,8 @@ fn smooth(x: f32) -> f32 {
 
 /// A person's view of their own flight: the field of view, and from the entrance the tunnel
 /// (`fx/wormhole.wgsl`) in the title's colour, told how long the craft has been through and
-/// how fast it flies, which is how fast the tunnel is drawn out and flown.
-fn view(reply: &mut Reply<'_>, craft: &Craft<'_>, look: &Look, flight: Flight) {
+/// its `pace`, what it went in at in units a tick, which is how fast the tunnel is flown.
+fn view(reply: &mut Reply<'_>, craft: &Craft<'_>, look: &Look, flight: Flight, pace: f32) {
     if !craft.is_person() {
         return;
     }
@@ -286,8 +288,7 @@ fn view(reply: &mut Reply<'_>, craft: &Craft<'_>, look: &Look, flight: Flight) {
     };
     scalar(PARAM_PHASE, ticks);
     scalar(PARAM_TRANSIT, LAST);
-    scalar(PARAM_SPEED, craft.speed_kmh() / SPEED_TO_KMH / 60.0);
-    scalar(PARAM_TAIL, f32::from(TAIL_TICKS));
+    scalar(PARAM_SPEED, pace);
     let _ = reply.screen_fill_shaded(craft, Rgba::new(r, g, b, 255), SHADER_WORMHOLE);
 }
 
@@ -353,6 +354,11 @@ fn show(
             generation,
         );
     }
+}
+
+/// What the craft flies, units a tick.
+fn pace_of(craft: &Craft<'_>) -> f32 {
+    craft.speed_kmh() / SPEED_TO_KMH / 60.0
 }
 
 /// The portal opens in front of the craft.
@@ -439,22 +445,31 @@ impl Extension for Slipstream {
                         show(obs, state, reply, Quality::of(obs.option(0)), None);
                         let short = short_of(&craft, state, obs.course_length());
                         if short > 0.0 {
-                            view(reply, &craft, &look, Flight::Approach(1.0 - short / AHEAD));
+                            view(
+                                reply,
+                                &craft,
+                                &look,
+                                Flight::Approach(1.0 - short / AHEAD),
+                                0.0,
+                            );
                         } else {
                             state.approaching = false;
+                            let pace = pace_of(&craft);
                             state.slots[index].left = TRANSIT_TICKS as u8;
+                            state.slots[index].pace = pace;
                             let length = obs.course_length();
                             let progress = craft.progress().filter(|_| state.entrance >= 0.0);
                             let units = progress.map(|p| between(p, state.exit, length));
                             enter(reply, &craft, &look, units.map(|u| u.max(0.0)));
-                            view(reply, &craft, &look, Flight::Through(0.0));
+                            view(reply, &craft, &look, Flight::Through(0.0), pace);
                         }
                     }
                 }
                 Some(craft) if left > 0 => {
                     let left = left - 1;
                     state.slots[index].left = left;
-                    view(reply, &craft, &look, Flight::out_of_the_world(left));
+                    let pace = state.slots[index].pace;
+                    view(reply, &craft, &look, Flight::out_of_the_world(left), pace);
                     let through = TRANSIT_TICKS.saturating_sub(u16::from(left));
                     show(obs, state, reply, Quality::of(obs.option(0)), Some(through));
                 }
@@ -485,8 +500,9 @@ impl Extension for Slipstream {
                     // there is no progress to wait on, so the craft goes through now.
                     state.entrance = -1.0;
                     memory.left = TRANSIT_TICKS as u8;
+                    memory.pace = pace_of(&craft);
                     enter(reply, &craft, &look, None);
-                    view(reply, &craft, &look, Flight::Through(0.0));
+                    view(reply, &craft, &look, Flight::Through(0.0), memory.pace);
                 }
             }
         }
@@ -495,7 +511,7 @@ impl Extension for Slipstream {
             let craft = Slot::new(index).and_then(|slot| obs.craft(slot));
             if memory.after > 0 {
                 if let Some(craft) = &craft {
-                    view(reply, craft, &look, Flight::back(memory.after));
+                    view(reply, craft, &look, Flight::back(memory.after), memory.pace);
                 }
                 memory.after = if memory.after < TAIL_TICKS {
                     memory.after + 1

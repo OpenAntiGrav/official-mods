@@ -20,9 +20,9 @@ default-enabled = false
 simulation = true
 api = 1
 memory_pages = 2
-# 8 slots of 3 bytes, the queue of 8, the slot in transit, the portal's two progresses and its
+# 8 slots of 7 bytes, the queue of 8, the slot in transit, the portal's two progresses and its
 # generation, and the approach (flying, ticks waited, units flown) (guest `Portal`).
-state_bytes = 48
+state_bytes = 80
 
 [extension.rules]
 module = "ext/slipstream.wasm"
