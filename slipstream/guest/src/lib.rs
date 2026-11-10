@@ -10,8 +10,9 @@
 //!   craft keeps flying; it goes through when its progress reaches the entrance, so the firer
 //!   sees the window before the screen fills. The pickup is spent at the entrance, not at the
 //!   press. A craft that has not arrived `APPROACH_LIMIT` ticks after the press (it stopped,
-//!   hit a wall, was wrecked or lost the pickup) closes the portal and keeps the pickup. With no
-//!   course fix the craft goes through on the press.
+//!   hit a wall, was wrecked or lost the pickup) closes the portal and keeps the pickup, and so
+//!   does one that arrives with its exit not ahead of it (a press at a standstill puts the exit
+//!   on the entrance). With no course fix the craft goes through on the press.
 //! - **Transit**: `TRANSIT_TICKS` out of the world, landing at the exit the portal looked out
 //!   on, `EXIT_SECONDS` of the entry speed past the entrance, at `EXIT_FACTOR` of its speed.
 //! - **The flight**, a person's own view of it (`Flight`, `fx/wormhole.wgsl`): the portal is
@@ -354,12 +355,22 @@ fn open(reply: &mut Reply<'_>, craft: &Craft<'_>, look: &Look) {
 
 /// The craft is at the entrance: out of the world, to land `exit_units` on, with the exit
 /// standing there and the hum playing. `None` flies `EXIT_SECONDS` of its speed.
-fn enter(reply: &mut Reply<'_>, craft: &Craft<'_>, look: &Look, exit_units: Option<f32>) {
+///
+/// `false` when the transit cannot be sent, an exit that is not ahead of the craft (a press
+/// at a standstill puts the exit on the entrance): nothing is spent and nothing plays.
+#[must_use]
+fn enter(reply: &mut Reply<'_>, craft: &Craft<'_>, look: &Look, exit_units: Option<f32>) -> bool {
     let exit = exit_units.map_or(Distance::Seconds(EXIT_SECONDS), Distance::Units);
-    let _ = reply.transit(craft, TRANSIT_TICKS, exit, EXIT_FACTOR);
+    if reply
+        .transit(craft, TRANSIT_TICKS, exit, EXIT_FACTOR)
+        .is_err()
+    {
+        return false;
+    }
     let _ = reply.clear_pickup(craft);
     let _ = reply.fire_mod_effect_ahead(craft, look.effect, exit);
     let _ = reply.play_mod_sound(craft, SOUND_TRANSIT, SoundMode::Loop);
+    true
 }
 
 /// How far the craft that fired still has to fly to the entrance, units: none once its
@@ -440,13 +451,17 @@ impl Extension for Slipstream {
                         } else {
                             state.approaching = false;
                             let pace = pace_of(&craft);
-                            state.slots[index].left = TRANSIT_TICKS as u8;
-                            state.slots[index].pace = pace;
                             let length = obs.course_length();
                             let progress = craft.progress().filter(|_| state.entrance >= 0.0);
                             let units = progress.map(|p| gap(p, state.exit, length));
-                            enter(reply, &craft, &look, units.map(|u| u.max(0.0)));
-                            view(reply, &craft, &look, Flight::Through(0.0), pace);
+                            if enter(reply, &craft, &look, units.map(|u| u.max(0.0))) {
+                                state.slots[index].left = TRANSIT_TICKS as u8;
+                                state.slots[index].pace = pace;
+                                view(reply, &craft, &look, Flight::Through(0.0), pace);
+                            } else {
+                                // Nowhere to come out: the portal closes, the pickup is kept.
+                                state.active = 0;
+                            }
                         }
                     }
                 }
@@ -459,7 +474,10 @@ impl Extension for Slipstream {
                     show(obs, state, reply, Quality::of(obs.option(0)), Some(through));
                 }
                 Some(craft) if craft.in_transit() => {}
-                _ => state.active = 0,
+                _ => {
+                    state.active = 0;
+                    state.approaching = false;
+                }
             }
         }
 
@@ -484,10 +502,14 @@ impl Extension for Slipstream {
                     // No fix: `portal_view` refuses a progress below zero, so no view, and
                     // there is no progress to wait on, so the craft goes through now.
                     state.entrance = -1.0;
-                    memory.left = TRANSIT_TICKS as u8;
-                    memory.pace = pace_of(&craft);
-                    enter(reply, &craft, &look, None);
-                    view(reply, &craft, &look, Flight::Through(0.0), memory.pace);
+                    state.approaching = false;
+                    if enter(reply, &craft, &look, None) {
+                        memory.left = TRANSIT_TICKS as u8;
+                        memory.pace = pace_of(&craft);
+                        view(reply, &craft, &look, Flight::Through(0.0), memory.pace);
+                    } else {
+                        state.active = 0;
+                    }
                 }
             }
         }

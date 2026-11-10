@@ -728,6 +728,58 @@ fn a_craft_that_loses_the_pickup_on_the_way_closes_the_portal() {
 }
 
 #[test]
+fn an_exit_that_is_not_ahead_closes_the_portal_and_spends_nothing() {
+    // A press at a standstill: four seconds of no speed puts the exit on the entrance, and
+    // the craft is past both when it arrives.
+    let me = slot(0);
+    let mut race = Race::<Slipstream>::new()
+        .with_craft(
+            me,
+            CraftRecord {
+                speed_kmh: 0.0,
+                ..holder(true)
+            },
+        )
+        .with_course(4000.0, me, Some(3900.0), 1);
+    race.event(Event::PickupFire { slot: me });
+    race.event(fits(me, true));
+    race.tick();
+    let mut sent = commands_of(&mut race, 3931.0);
+    sent.extend(race.tick());
+    assert_eq!(transits(&sent), 0, "there is nowhere to come out");
+    assert!(
+        !sent
+            .iter()
+            .any(|c| matches!(c, Command::ClearPickup { .. })),
+        "the pickup is kept"
+    );
+    assert!(
+        !sent.iter().any(|c| matches!(
+            c,
+            Command::PlayModSound {
+                mode: SoundMode::Loop,
+                ..
+            }
+        )),
+        "no hum that nothing would stop"
+    );
+    assert_eq!(
+        tunnel_of(&sent),
+        None,
+        "no tunnel over a craft in the world"
+    );
+    // Closed: a press at speed opens a portal again and goes through.
+    *race.craft_mut(me) = Some(CraftRecord {
+        speed_kmh: 360.0,
+        ..holder(true)
+    });
+    race.event(Event::PickupFire { slot: me });
+    race.event(fits(me, true));
+    race.tick();
+    assert_eq!(transits(&commands_of(&mut race, 3962.0)), 1);
+}
+
+#[test]
 fn another_fire_waits_while_the_first_is_still_flying_to_the_portal() {
     let (a, b) = (slot(0), slot(1));
     let mut race = flier(3900.0).with_craft(b, holder(false));

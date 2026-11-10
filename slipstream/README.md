@@ -23,7 +23,8 @@ icon), Wipeout Pure, HD/Fury, Omega and 2048.
 - **Approach**: the portal opens at the press, with a flash, and you keep flying, in the
   world, to it; the window is in front of you until you reach it. The pickup is spent at the
   entrance. If you have not arrived within 50 ticks (stopped, wrecked, lost the pickup) the
-  portal closes and you keep the pickup. Other craft do not enter it.
+  portal closes and you keep the pickup; the same if you arrive with the exit not ahead of you
+  (a press at a standstill puts the exit on the entrance). Other craft do not enter it.
 - **Transit** lasts one second from the entrance: the craft is out of the world (not drawn for
   anyone else, not collided with, not hit or locked, no steering, no thrust).
 - **Exit** four seconds of your speed (at the press) past the entrance along the circuit at 90 % of your speed, on
