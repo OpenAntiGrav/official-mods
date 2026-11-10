@@ -416,10 +416,7 @@ fn flier(at: f32) -> Race<Slipstream> {
 
 /// Moves the craft on the lap to `at` without touching anything else.
 fn move_to(race: &mut Race<Slipstream>, at: f32) {
-    let me = slot(0);
-    let record = *race.craft_mut(me);
-    *race = std::mem::take(race).with_course(4000.0, me, Some(at), 1);
-    *race.craft_mut(me) = record;
+    race.set_progress(slot(0), Some(at));
 }
 
 /// Ticks of a portal's life for a person at 360 km/h on a 4000 unit lap, pressing at 3900 and

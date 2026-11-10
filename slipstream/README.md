@@ -24,8 +24,8 @@ icon), Wipeout Pure, HD/Fury, Omega and 2048.
   world, to it; the window is in front of you until you reach it. The pickup is spent at the
   entrance. If you have not arrived within 50 ticks (stopped, wrecked, lost the pickup) the
   portal closes and you keep the pickup. Other craft do not enter it.
-- **Transit** lasts one second from the entrance: the craft is out of the world (not drawn, not
-  collided with, not hit or locked, no steering, no thrust).
+- **Transit** lasts one second from the entrance: the craft is out of the world (not drawn for
+  anyone else, not collided with, not hit or locked, no steering, no thrust).
 - **Exit** two seconds of your speed (at the press) past the entrance along the circuit at 90 % of your speed, on
   the road's middle at flying height: no drop, you fly on from the first tick. Laps and
   the finish count through the jump: a jump over the line is a lap, or the finish, on the exit

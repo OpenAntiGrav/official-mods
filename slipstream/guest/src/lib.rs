@@ -39,9 +39,10 @@
 //! apart from the rules.
 #![cfg_attr(not(test), no_std)]
 
+use oag_ext::lap::{ahead, gap};
 use oag_ext::{
     Craft, Distance, Event, Extension, Observation, Pickup, Reply, Rgba, Slot, SoundMode,
-    ViewUpdate, title,
+    TICKS_PER_SECOND, ViewUpdate, title,
 };
 
 // The numbers below are chosen, not measured.
@@ -77,8 +78,6 @@ const TAIL_TICKS: u8 = 24;
 /// The last tick out of the world, counted from the entrance: the tick before the exit.
 const LAST: f32 = (TRANSIT_TICKS - 1) as f32;
 const SLOTS: usize = 8;
-/// Km/h in a track unit a second: the exit's distance is `EXIT_SECONDS` of the entry speed.
-const SPEED_TO_KMH: f32 = 3.6;
 /// How far the portal's surface reaches for the view's visibility test, units: a little over
 /// half `fx/portal_*.toml`'s `size`.
 const VIEW_RADIUS: u8 = 8;
@@ -292,29 +291,15 @@ fn view(reply: &mut Reply<'_>, craft: &Craft<'_>, look: &Look, flight: Flight, p
     let _ = reply.screen_fill_shaded(craft, Rgba::new(r, g, b, 255), SHADER_WORMHOLE);
 }
 
-/// `progress` on by `units`, taken round the lap.
-fn on(progress: f32, units: f32, length: f32) -> f32 {
-    let at = progress + units;
-    let laps = (at / length) as i32 as f32;
-    let at = at - laps * length;
-    if at < 0.0 { at + length } else { at }
-}
-
 /// Where a fire by `craft` stands and looks out: the entrance `AHEAD` units on and the exit
 /// `EXIT_SECONDS` of its speed past that. `None` with no course or no fix.
 fn places(craft: &Craft<'_>, length: f32) -> Option<(f32, f32)> {
     let progress = craft.progress().filter(|_| length > 0.0)?;
-    let exit_units = EXIT_SECONDS * craft.speed_kmh() / SPEED_TO_KMH;
+    let exit_units = EXIT_SECONDS * craft.speed();
     Some((
-        on(progress, AHEAD, length),
-        on(progress, AHEAD + exit_units, length),
+        ahead(progress, AHEAD, length),
+        ahead(progress, AHEAD + exit_units, length),
     ))
-}
-
-/// `to` less `from` round the lap, in `-length / 2..length / 2`: negative once `from` is past it.
-fn between(from: f32, to: f32, length: f32) -> f32 {
-    let delta = to - from;
-    delta - (delta / length + if delta < 0.0 { -0.5 } else { 0.5 }) as i32 as f32 * length
 }
 
 /// Asks for the road at the exit through the entrance, in the view of every person's craft,
@@ -358,7 +343,7 @@ fn show(
 
 /// What the craft flies, units a tick.
 fn pace_of(craft: &Craft<'_>) -> f32 {
-    craft.speed_kmh() / SPEED_TO_KMH / 60.0
+    craft.speed() / TICKS_PER_SECOND
 }
 
 /// The portal opens in front of the craft.
@@ -384,9 +369,9 @@ fn short_of(craft: &Craft<'_>, state: &mut Portal, length: f32) -> f32 {
         .progress()
         .filter(|_| length > 0.0 && state.entrance >= 0.0)
     {
-        Some(progress) => between(progress, state.entrance, length).max(0.0),
+        Some(progress) => gap(progress, state.entrance, length).max(0.0),
         None => {
-            state.flown += craft.speed_kmh() / SPEED_TO_KMH / 60.0;
+            state.flown += pace_of(craft);
             (AHEAD - state.flown).max(0.0)
         }
     }
@@ -459,7 +444,7 @@ impl Extension for Slipstream {
                             state.slots[index].pace = pace;
                             let length = obs.course_length();
                             let progress = craft.progress().filter(|_| state.entrance >= 0.0);
-                            let units = progress.map(|p| between(p, state.exit, length));
+                            let units = progress.map(|p| gap(p, state.exit, length));
                             enter(reply, &craft, &look, units.map(|u| u.max(0.0)));
                             view(reply, &craft, &look, Flight::Through(0.0), pace);
                         }
