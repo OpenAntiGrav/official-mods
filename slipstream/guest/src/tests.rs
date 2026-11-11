@@ -2,7 +2,7 @@ use oag_ext::test::{CraftRecord, Race};
 use oag_ext::{Command, Event};
 
 use super::*;
-use oag_ext::WarningIcon;
+use oag_ext::{Warning, WarningSide};
 
 fn holder(person: bool) -> CraftRecord {
     CraftRecord {
@@ -808,11 +808,30 @@ fn the_manifest_declares_the_state_the_guest_keeps() {
     assert_eq!(declared, <Portal as oag_ext::Blob>::BYTES);
 }
 
-fn warnings(commands: &[Command]) -> Vec<(Slot, WarningIcon)> {
+/// The warning the guest raises: its own glyph, named as `oag-mod.toml`'s `[icons]` declares it.
+fn portal_warning() -> Warning {
+    Warning::Mod {
+        side: WarningSide::Rear,
+        icon: oag_ext::ModIcon::new("portal-warning").unwrap(),
+    }
+}
+
+#[test]
+fn the_warning_glyph_is_declared_in_the_manifest_and_ships() {
+    let manifest = include_str!("../../oag-mod.toml");
+    let svg = include_str!("../../icons/portal-warning.svg");
+    assert!(
+        manifest.contains(&format!("{WARNING_ICON} = \"icons/portal-warning.svg\"")),
+        "[icons] names the warning glyph the guest raises"
+    );
+    assert!(svg.contains("<svg") && svg.contains("<path"));
+}
+
+fn warnings(commands: &[Command]) -> Vec<(Slot, Warning)> {
     commands
         .iter()
         .filter_map(|c| match c {
-            Command::RaiseWarning { slot, icon } => Some((*slot, *icon)),
+            Command::RaiseWarning { slot, warning } => Some((*slot, *warning)),
             _ => None,
         })
         .collect()
@@ -846,7 +865,7 @@ fn a_person_the_craft_comes_out_ahead_of_gets_the_rear_warning_once() {
         let sent = the_commands_when_it_goes_in_with_a_person_at(at);
         assert_eq!(
             warnings(&sent),
-            [(slot(1), WARNING)],
+            [(slot(1), portal_warning())],
             "a person at {at}, warned the tick the transit is sent and no other"
         );
     }

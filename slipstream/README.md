@@ -27,7 +27,8 @@ icon), Wipeout Pure, HD/Fury, Omega and 2048.
   (a press at a standstill puts the exit on the entrance). Other craft do not enter it.
 - **Warning**: a person whose craft the portal's craft will come out ahead of (it goes in behind
   them and lands further along than they are) gets the rear incoming warning, once, as the
-  transit starts: the same blinking icon a weapon fired from behind raises, the Repulser's.
+  transit starts: the same blinking warning a weapon fired from behind raises, with the mod's own portal glyph
+  (`icons/portal-warning.svg`, an SVG of ours) in place of a weapon's icon.
   A craft that stays behind where it lands, one already ahead of the entrance and an AI craft
   get none. The engine draws it where the original draws its weapon warnings (Pulse, one
   person, a racing mode) and drops it elsewhere.

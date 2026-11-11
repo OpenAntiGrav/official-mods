@@ -59,6 +59,9 @@ hd = "icons/hd.png"
 omega = "icons/omega.png"
 pulse = "icons/pulse_ps2.png"
 pure = "icons/pure_psp.png"
+# The glyph of the incoming warning a craft coming through behind a person raises, an SVG
+# rasterised at the warning slot's pixels (the title's rear icons are all weapons').
+portal-warning = "icons/portal-warning.svg"
 
 [pickup]
 icon = { mod = "pulse" }

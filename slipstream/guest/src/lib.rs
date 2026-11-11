@@ -48,7 +48,7 @@
 use oag_ext::lap::{ahead, gap};
 use oag_ext::{
     Craft, Distance, Event, Extension, Observation, Pickup, Reply, Rgba, Slot, SoundMode,
-    TICKS_PER_SECOND, ViewUpdate, WarningIcon, title,
+    TICKS_PER_SECOND, ViewUpdate, WarningSide, title,
 };
 
 // The numbers below are chosen, not measured.
@@ -84,10 +84,12 @@ const TAIL_TICKS: u8 = 24;
 /// The last tick out of the world, counted from the entrance: the tick before the exit.
 const LAST: f32 = (TRANSIT_TICKS - 1) as f32;
 const SLOTS: usize = 8;
-/// The incoming warning a person gets from a craft coming through behind them. The rear
-/// group has weapon icons only and none is a portal's; the Repulser's is a close one, a
-/// push from behind. Chosen.
-const WARNING: WarningIcon = WarningIcon::Repulser;
+/// The incoming warning a person gets from a craft coming through behind them: the mod's
+/// own portal glyph (`[icons]`, `icons/portal-warning.svg`) in the rear group, a threat behind.
+/// The title's rear icons are all weapons'. Chosen.
+const WARNING_SIDE: WarningSide = WarningSide::Rear;
+/// The `[icons]` name of the portal glyph the warning shows.
+const WARNING_ICON: &str = "portal-warning";
 /// How far the portal's surface reaches for the view's visibility test, units: a little over
 /// half `fx/portal_*.toml`'s `size`.
 const VIEW_RADIUS: u8 = 8;
@@ -399,7 +401,7 @@ fn warn_overtaken(
         let Some(at) = other.progress() else { continue };
         let ahead_of_it = gap(entrance, at, length);
         if ahead_of_it > 0.0 && ahead_of_it < exit_units {
-            let _ = reply.raise_warning(&other, WARNING);
+            let _ = reply.raise_mod_warning(&other, WARNING_SIDE, WARNING_ICON);
         }
     }
 }
