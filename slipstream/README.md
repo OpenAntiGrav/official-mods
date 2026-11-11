@@ -44,7 +44,7 @@ icon), Wipeout Pure, HD/Fury, Omega and 2048.
 - **One portal at a time.** A fire while another craft is in transit waits in a queue and
   runs when that transit ends, if the portal still fits then.
 
-- **The portal's surface** shows the road at the exit (`fx/portal.wgsl`). OPTIONS > SLIPSTREAM > PORTAL VIEW: Low is an animated
+- **The portal's surface** shows the road at the exit (`fx/portal.wgsl`). OPTIONS > MODS > SLIPSTREAM > SETTINGS > PORTAL VIEW: Low is an animated
   surface with no second view, Medium one snapshot per portal, High the view every frame (default). It changes nothing in the race.
   The tunnel's far end follows the same pick: the road at the exit at High, a snapshot of it at Medium (a second one a
   portal, taken a quarter of a second in), and light at Low. The second seat of a split screen sees the light too.

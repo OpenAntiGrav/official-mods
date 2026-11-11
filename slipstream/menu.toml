@@ -1,19 +1,11 @@
-# Slipstream's one setting: how the portal's surface is drawn. A row under OPTIONS opens a
-# page with a QUALITY choice saved under [mod_settings."oag.slipstream"]. The guest reads the
-# pick with `Observation::option(0)` (the index in `values`); a `view` row, so only the call whose
-# outputs are drawn sees it.
+# Slipstream's one setting: how the portal's surface is drawn. The MODS page's SETTINGS row opens
+# its page while the mod is on, with a QUALITY choice saved under [mod_settings."oag.slipstream"].
+# The guest reads the pick with `Observation::option(0)` (the index in `values`); a `view` row, so
+# only the call whose outputs are drawn sees it.
 
 toml-schema = { location = "https://oag.topaxi.com/mods/schemas/v1/mod-menu.tosd", version = "1.0.0" }
 
-[[entry]]
-id = "slipstream"
-parent = "options"
-kind = "submenu"
-label = "SLIPSTREAM"
-string_id = "OAG_MENU_SLIPSTREAM"
-target = "slipstream"
-subtitle = "How the portal shows the road at its exit"
-subtitle_string_id = "OAG_MENU_SLIPSTREAM_SUBTITLE"
+settings = "slipstream"
 
 [[page]]
 id = "slipstream"

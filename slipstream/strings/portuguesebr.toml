@@ -1,4 +1,3 @@
 [strings]
 OAG_MENU_SLIPSTREAM = { text = "SLIPSTREAM", human = false }
-OAG_MENU_SLIPSTREAM_SUBTITLE = { text = "Como o portal mostra a pista na saída", human = false }
 OAG_SLIPSTREAM_QUALITY = { text = "VISÃO DO PORTAL", human = false }
