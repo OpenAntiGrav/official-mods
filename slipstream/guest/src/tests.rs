@@ -2,6 +2,7 @@ use oag_ext::test::{CraftRecord, Race};
 use oag_ext::{Command, Event};
 
 use super::*;
+use oag_ext::WarningIcon;
 
 fn holder(person: bool) -> CraftRecord {
     CraftRecord {
@@ -805,4 +806,67 @@ fn the_manifest_declares_the_state_the_guest_keeps() {
         .and_then(|n| n.trim().parse().ok())
         .expect("a state_bytes line");
     assert_eq!(declared, <Portal as oag_ext::Blob>::BYTES);
+}
+
+fn warnings(commands: &[Command]) -> Vec<(Slot, WarningIcon)> {
+    commands
+        .iter()
+        .filter_map(|c| match c {
+            Command::RaiseWarning { slot, icon } => Some((*slot, *icon)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Slot 0 presses at 3900 on a 4000 unit lap at 100 units a second and goes in at the entrance
+/// at 3930, to come out four seconds on, at 330: a person `at` is sitting there as it does, with
+/// the commands of the tick it goes in.
+fn the_commands_when_it_goes_in_with_a_person_at(at: f32) -> Vec<Command> {
+    let (me, other) = (slot(0), slot(1));
+    let mut race = flier(3900.0).with_craft(other, holder(true));
+    race.set_progress(other, Some(at));
+    race.event(Event::PickupFire { slot: me });
+    race.event(fits(me, true));
+    let mut all = race.tick();
+    let mut here = 3900.0;
+    while transits(&all) == 0 {
+        here += 5.0;
+        move_to(&mut race, here);
+        all.extend(race.tick());
+        assert!(here < 4000.0, "never went through");
+    }
+    all
+}
+
+#[test]
+fn a_person_the_craft_comes_out_ahead_of_gets_the_rear_warning_once() {
+    // 3930 is the entrance and 330 the exit, 400 units on: each of these is between them,
+    // one across the lap's end.
+    for at in [3950.0, 3990.0, 20.0, 200.0] {
+        let sent = the_commands_when_it_goes_in_with_a_person_at(at);
+        assert_eq!(
+            warnings(&sent),
+            [(slot(1), WARNING)],
+            "a person at {at}, warned the tick the transit is sent and no other"
+        );
+    }
+}
+
+#[test]
+fn a_person_the_craft_stays_behind_or_that_is_already_behind_it_gets_none() {
+    // Behind the entrance at 3930, on it, past the exit at 330; then an AI between the two.
+    for at in [3800.0, 3900.0, 3930.0, 500.0, 1500.0, 2500.0] {
+        let sent = the_commands_when_it_goes_in_with_a_person_at(at);
+        assert_eq!(transits(&sent), 1);
+        assert_eq!(warnings(&sent), [], "a person at {at}");
+    }
+    let (me, other) = (slot(0), slot(1));
+    let mut race = flier(3900.0).with_craft(other, holder(false));
+    race.set_progress(other, Some(3990.0));
+    race.event(Event::PickupFire { slot: me });
+    race.event(fits(me, true));
+    let mut all = race.tick();
+    all.extend(commands_of(&mut race, 3935.0));
+    assert_eq!(transits(&all), 1);
+    assert_eq!(warnings(&all), [], "an AI craft has no HUD to warn");
 }

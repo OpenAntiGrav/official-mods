@@ -24,6 +24,11 @@
 //! - **One at a time**: a race has one active portal pair. A fire requested while another craft
 //!   is in transit waits in a queue and runs when that transit ends, if the portal still fits.
 //!
+//! - **The warning**: a person with the craft that goes through behind them, whose exit
+//!   lands ahead of them, gets the rear incoming warning (`warn_overtaken`), once, on the tick
+//!   the transit is sent. A craft that stays behind the exit, or is already ahead of the
+//!   entrance, is not warned about.
+//!
 //! - **Sound**: the entry, a hum for the transit and the exit are the mod's own sounds
 //!   (`[sounds]`), played from the craft; a person hears their own craft dry and the others
 //!   placed in the world.
@@ -43,7 +48,7 @@
 use oag_ext::lap::{ahead, gap};
 use oag_ext::{
     Craft, Distance, Event, Extension, Observation, Pickup, Reply, Rgba, Slot, SoundMode,
-    TICKS_PER_SECOND, ViewUpdate, title,
+    TICKS_PER_SECOND, ViewUpdate, WarningIcon, title,
 };
 
 // The numbers below are chosen, not measured.
@@ -79,6 +84,10 @@ const TAIL_TICKS: u8 = 24;
 /// The last tick out of the world, counted from the entrance: the tick before the exit.
 const LAST: f32 = (TRANSIT_TICKS - 1) as f32;
 const SLOTS: usize = 8;
+/// The incoming warning a person gets from a craft coming through behind them. The rear
+/// group has weapon icons only and none is a portal's; the Repulser's is a close one, a
+/// push from behind. Chosen.
+const WARNING: WarningIcon = WarningIcon::Repulser;
 /// How far the portal's surface reaches for the view's visibility test, units: a little over
 /// half `fx/portal_*.toml`'s `size`.
 const VIEW_RADIUS: u8 = 8;
@@ -373,6 +382,28 @@ fn enter(reply: &mut Reply<'_>, craft: &Craft<'_>, look: &Look, exit_units: Opti
     true
 }
 
+/// The craft `through` goes in at `entrance` to come out `exit_units` on: every person
+/// it passes on the way, who is ahead of it now and behind where it lands, gets the rear
+/// warning. The host draws it for the one person it is drawn for and drops the rest.
+fn warn_overtaken(
+    obs: &Observation<'_>,
+    reply: &mut Reply<'_>,
+    through: Slot,
+    entrance: f32,
+    exit_units: f32,
+) {
+    let length = obs.course_length();
+    for other in obs.crafts().filter(|other| {
+        other.slot() != through && other.is_person() && other.is_racing() && !other.in_transit()
+    }) {
+        let Some(at) = other.progress() else { continue };
+        let ahead_of_it = gap(entrance, at, length);
+        if ahead_of_it > 0.0 && ahead_of_it < exit_units {
+            let _ = reply.raise_warning(&other, WARNING);
+        }
+    }
+}
+
 /// How far the craft that fired still has to fly to the entrance, units: none once its
 /// progress is at or past it, or without a fix once it has flown `AHEAD` units.
 fn short_of(craft: &Craft<'_>, state: &mut Portal, length: f32) -> f32 {
@@ -455,6 +486,9 @@ impl Extension for Slipstream {
                             let progress = craft.progress().filter(|_| state.entrance >= 0.0);
                             let units = progress.map(|p| gap(p, state.exit, length));
                             if enter(reply, &craft, &look, units.map(|u| u.max(0.0))) {
+                                if let Some((at, units)) = progress.zip(units) {
+                                    warn_overtaken(obs, reply, craft.slot(), at, units);
+                                }
                                 state.slots[index].left = TRANSIT_TICKS as u8;
                                 state.slots[index].pace = pace;
                                 view(reply, &craft, &look, Flight::Through(0.0), pace);

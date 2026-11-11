@@ -25,6 +25,12 @@ icon), Wipeout Pure, HD/Fury, Omega and 2048.
   entrance. If you have not arrived within 50 ticks (stopped, wrecked, lost the pickup) the
   portal closes and you keep the pickup; the same if you arrive with the exit not ahead of you
   (a press at a standstill puts the exit on the entrance). Other craft do not enter it.
+- **Warning**: a person whose craft the portal's craft will come out ahead of (it goes in behind
+  them and lands further along than they are) gets the rear incoming warning, once, as the
+  transit starts: the same blinking icon a weapon fired from behind raises, the Repulser's.
+  A craft that stays behind where it lands, one already ahead of the entrance and an AI craft
+  get none. The engine draws it where the original draws its weapon warnings (Pulse, one
+  person, a racing mode) and drops it elsewhere.
 - **Transit** lasts one second from the entrance: the craft is out of the world (not drawn for
   anyone else, not collided with, not hit or locked, no steering, no thrust).
 - **Exit** four seconds of your speed (at the press) past the entrance along the circuit at 90 % of your speed, on
