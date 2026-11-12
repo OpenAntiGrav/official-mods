@@ -1,0 +1,21 @@
+# HD medals: Wipeout HD's own medal icons on Wipeout Pulse's Cell Selection and Grid Selection.
+# Art only; it changes no rule. The icons are read from a Wipeout HD disc on this machine and
+# nothing of them is shipped here. Off until the player turns it on.
+
+toml-schema = { location = "https://oag.topaxi.com/mods/schemas/v1/mod.tosd", version = "1.0.0" }
+
+[mod]
+id = "oag.hd-medals"
+name = "HD Medals"
+version = "1.0.0"
+authors = ["The OpenAntiGrav contributors"]
+license = "MIT OR Apache-2.0"
+description = "Wipeout Pulse's campaign hexagons show Wipeout HD's medal icons, in the difficulty block each medal was earned on. Needs a Wipeout HD disc; without one the colour swatches stay."
+repository = "https://github.com/OpenAntiGrav/official-mods"
+titles = ["wipeout-pulse"]
+needs-titles = ["wipeout-hd"]
+default-enabled = false
+
+[campaign-medals]
+source = { title = "wipeout-hd" }
+per-difficulty = true
