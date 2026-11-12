@@ -12,3 +12,7 @@ copied or edited. Licensed like the rest of this repository (MIT OR Apache-2.0).
 `pure_psp.png` is Pure's: 64x36, the glyph alone (55x28, 6 px bands as Pure's own pickup glyphs,
 Pure's glyph green). Pure draws its pickup icons as models on a striped backdrop, so the engine
 draws the backdrop and the mod ships only the glyph; the source is `src/pure_psp.svg`.
+
+`portal-warning.svg` is the incoming-warning glyph (Pulse's rear warning slot): the paths of
+`src/pulse_ps2.svg` on a tight `viewBox`, our own art, shipped as an SVG (the engine rasterises it at the
+warning slot's pixels) rather than rendered to a PNG.
