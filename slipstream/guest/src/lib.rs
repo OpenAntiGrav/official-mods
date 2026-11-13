@@ -93,9 +93,9 @@ const WARNING_ICON: &str = "portal-warning";
 /// How far the portal's surface reaches for the view's visibility test, units: a little over
 /// half `fx/portal_*.toml`'s `size`.
 const VIEW_RADIUS: u8 = 8;
-/// `[shaders]`, by place in name order: `portal`, `wormhole`.
-const SHADER_PORTAL: u16 = 0;
-const SHADER_WORMHOLE: u16 = 1;
+/// The keys of `[shaders]` the guest draws through.
+const SHADER_PORTAL: &str = "portal";
+const SHADER_WORMHOLE: &str = "wormhole";
 /// `fx/wormhole.wgsl`'s scalars, by place in its header.
 const PARAM_PHASE: u8 = 0;
 const PARAM_TRANSIT: u8 = 1;
@@ -104,16 +104,15 @@ const PARAM_SPEED: u8 = 2;
 /// for the far end of its tunnel once the camera is seated, up to the engine's cap.
 const GENERATIONS: u8 = 64;
 
-/// The mod's own sounds by their place in `[sounds]`, which is name order: `portal-exit`,
-/// `portal-open`, `transit` (`sounds/`, made by `src/synth_sounds.py`).
-const SOUND_EXIT: u16 = 0;
-const SOUND_OPEN: u16 = 1;
-const SOUND_TRANSIT: u16 = 2;
+/// The keys of the mod's own `[sounds]` (`sounds/`, made by `src/synth_sounds.py`).
+const SOUND_EXIT: &str = "portal-exit";
+const SOUND_OPEN: &str = "portal-open";
+const SOUND_TRANSIT: &str = "transit";
 
-/// What a title's portal looks like: its effect (`[effects]` in name order) and the colour of
-/// the screen fill.
+/// What a title's portal looks like: its effect (a key of `[effects]`) and the colour of the
+/// screen fill.
 struct Look {
-    effect: u16,
+    effect: &'static str,
     rgb: [u8; 3],
 }
 
@@ -123,27 +122,27 @@ impl Look {
     fn of(title: u32) -> Self {
         if title == title!("wipeout-2048") {
             Self {
-                effect: 0,
+                effect: "portal_2048",
                 rgb: [0x20, 0xE0, 0x70],
             }
         } else if title == title!("wipeout-hd") {
             Self {
-                effect: 1,
+                effect: "portal_hd",
                 rgb: [0xFF, 0x8A, 0x20],
             }
         } else if title == title!("wipeout-omega-collection") {
             Self {
-                effect: 2,
+                effect: "portal_omega",
                 rgb: [0xA0, 0x60, 0xFF],
             }
         } else if title == title!("wipeout-pure") {
             Self {
-                effect: 4,
+                effect: "portal_pure",
                 rgb: [0x40, 0xFF, 0x40],
             }
         } else {
             Self {
-                effect: 3,
+                effect: "portal_pulse",
                 rgb: [0x30, 0xB8, 0xFF],
             }
         }

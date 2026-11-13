@@ -70,14 +70,18 @@ fn a_press_with_room_goes_through_and_the_pickup_is_spent() {
         exit_factor: EXIT_FACTOR
     }));
     assert!(sent.contains(&Command::ClearPickup { slot: me }));
-    let portals: Vec<u16> = sent
+    let portals: Vec<&str> = sent
         .iter()
         .filter_map(|c| match c {
-            Command::FireModEffectAhead { index, .. } => Some(*index),
+            Command::FireModEffectAhead { effect, .. } => Some(effect.as_str()),
             _ => None,
         })
         .collect();
-    assert_eq!(portals, [1, 1], "HD's portal at the entry and the exit");
+    assert_eq!(
+        portals,
+        ["portal_hd", "portal_hd"],
+        "HD's portal at the entry and the exit"
+    );
 }
 
 #[test]
@@ -87,15 +91,15 @@ fn the_entry_opens_with_a_sound_and_starts_the_transit_hum_which_the_exit_stops(
     race.event(Event::PickupFire { slot: me });
     race.event(fits(me, true));
     let sent = race.tick();
-    let sounds = |commands: &[Command]| -> Vec<(u16, SoundMode)> {
+    fn sounds(commands: &[Command]) -> Vec<(&str, SoundMode)> {
         commands
             .iter()
             .filter_map(|c| match c {
-                Command::PlayModSound { index, mode, .. } => Some((*index, *mode)),
+                Command::PlayModSound { sound, mode, .. } => Some((sound.as_str(), *mode)),
                 _ => None,
             })
             .collect()
-    };
+    }
     assert_eq!(
         sounds(&sent),
         [
@@ -121,24 +125,44 @@ fn the_entry_opens_with_a_sound_and_starts_the_transit_hum_which_the_exit_stops(
     );
 }
 
-#[test]
-fn the_sound_indices_are_the_name_order_of_the_manifest() {
+/// The keys of the manifest's `[table]`, in file order.
+fn manifest_keys(table: &str) -> Vec<&'static str> {
     let manifest = include_str!("../../oag-mod.toml");
-    let table = manifest.split("[sounds]").nth(1).expect("a [sounds] table");
-    let names: Vec<&str> = table
-        .lines()
+    let heading = format!("\n[{table}]");
+    let body = manifest.split(&heading).nth(1).expect("the table");
+    body.lines()
         .skip(1)
         .take_while(|line| !line.starts_with('['))
         .filter_map(|line| line.split('=').next())
         .map(str::trim)
         .filter(|name| !name.is_empty() && !name.starts_with('#'))
-        .collect();
-    assert_eq!(names[usize::from(SOUND_EXIT)], "portal-exit");
-    assert_eq!(names[usize::from(SOUND_OPEN)], "portal-open");
-    assert_eq!(names[usize::from(SOUND_TRANSIT)], "transit");
-    let mut sorted = names.clone();
-    sorted.sort_unstable();
-    assert_eq!(names, sorted, "listed in name order");
+        .collect()
+}
+
+/// The guest names its sounds, shaders and effects by key, so a key the manifest lacks is the one
+/// mistake left: the host would fault the module on the first send.
+#[test]
+fn every_key_the_guest_names_is_in_the_manifest() {
+    let sounds = manifest_keys("sounds");
+    for key in [SOUND_EXIT, SOUND_OPEN, SOUND_TRANSIT] {
+        assert!(sounds.contains(&key), "[sounds] lacks {key}: {sounds:?}");
+    }
+    let shaders = manifest_keys("shaders");
+    for key in [SHADER_PORTAL, SHADER_WORMHOLE] {
+        assert!(shaders.contains(&key), "[shaders] lacks {key}: {shaders:?}");
+    }
+    let effects = manifest_keys("effects");
+    for title in [
+        title!("wipeout-2048"),
+        title!("wipeout-hd"),
+        title!("wipeout-omega-collection"),
+        title!("wipeout-pulse"),
+        title!("wipeout-pure"),
+        0,
+    ] {
+        let key = Look::of(title).effect;
+        assert!(effects.contains(&key), "[effects] lacks {key}: {effects:?}");
+    }
 }
 
 /// The tunnel a tick sends a person's view: the fill's colour and the shader's `phase` and
@@ -146,7 +170,11 @@ fn the_sound_indices_are_the_name_order_of_the_manifest() {
 fn tunnel_of(commands: &[Command]) -> Option<(Rgba, f32, f32)> {
     let rgba = commands.iter().find_map(|c| match c {
         Command::ScreenFill { rgba, shader, .. } => {
-            assert_eq!(*shader, Some(SHADER_WORMHOLE), "the fill is the tunnel");
+            assert_eq!(
+                shader.as_ref().map(oag_ext::ModName::as_str),
+                Some(SHADER_WORMHOLE),
+                "the fill is the tunnel"
+            );
             Some(*rgba)
         }
         _ => None,
@@ -158,7 +186,7 @@ fn tunnel_of(commands: &[Command]) -> Option<(Rgba, f32, f32)> {
                 index: at,
                 value,
                 ..
-            } if *shader == SHADER_WORMHOLE && *at == index => Some(*value),
+            } if shader.as_str() == SHADER_WORMHOLE && *at == index => Some(*value),
             _ => None,
         })
     };
@@ -390,7 +418,7 @@ fn a_slot_past_the_eighth_is_ignored_not_a_trap() {
 #[test]
 fn pure_has_its_own_portal_effect_and_colour() {
     let pure = Look::of(title!("wipeout-pure"));
-    assert_eq!((pure.effect, pure.rgb), (4, [0x40, 0xFF, 0x40]));
+    assert_eq!((pure.effect, pure.rgb), ("portal_pure", [0x40, 0xFF, 0x40]));
     for other in [
         Look::of(title!("wipeout-2048")),
         Look::of(title!("wipeout-hd")),
@@ -554,7 +582,7 @@ fn low_asks_for_no_view_medium_a_snapshot_high_every_frame_and_the_race_is_the_s
     assert_eq!(plain(medium_rest), plain(high_rest.clone()));
     let scalar = |rest: &[Command]| {
         rest.iter().find_map(|c| match c {
-            Command::SetShaderParam { shader, value, .. } if *shader == SHADER_PORTAL => {
+            Command::SetShaderParam { shader, value, .. } if shader.as_str() == SHADER_PORTAL => {
                 Some(*value)
             }
             _ => None,
@@ -633,12 +661,12 @@ fn the_craft_flies_to_the_portal_and_the_transit_starts_at_the_entrance_not_on_t
     );
     assert!(press.contains(&Command::FireModEffectAhead {
         slot: me,
-        index: 3,
+        effect: oag_ext::ModName::new("portal_pulse").unwrap(),
         distance: Distance::Units(AHEAD)
     }));
     assert!(press.contains(&Command::PlayModSound {
         slot: me,
-        index: SOUND_OPEN,
+        sound: oag_ext::ModName::new(SOUND_OPEN).unwrap(),
         mode: SoundMode::Once
     }));
     for at in [3905.0, 3915.0, 3929.0] {
@@ -667,12 +695,12 @@ fn the_craft_flies_to_the_portal_and_the_transit_starts_at_the_entrance_not_on_t
     assert!(arrival.contains(&Command::ClearPickup { slot: me }));
     assert!(arrival.contains(&Command::FireModEffectAhead {
         slot: me,
-        index: 3,
+        effect: oag_ext::ModName::new("portal_pulse").unwrap(),
         distance: Distance::Units(399.0)
     }));
     assert!(arrival.contains(&Command::PlayModSound {
         slot: me,
-        index: SOUND_TRANSIT,
+        sound: oag_ext::ModName::new(SOUND_TRANSIT).unwrap(),
         mode: SoundMode::Loop
     }));
 }
@@ -797,22 +825,11 @@ fn another_fire_waits_while_the_first_is_still_flying_to_the_portal() {
     );
 }
 
-#[test]
-fn the_manifest_declares_the_state_the_guest_keeps() {
-    let manifest = include_str!("../../oag-mod.toml");
-    let declared: usize = manifest
-        .lines()
-        .find_map(|line| line.strip_prefix("state_bytes = "))
-        .and_then(|n| n.trim().parse().ok())
-        .expect("a state_bytes line");
-    assert_eq!(declared, <Portal as oag_ext::Blob>::BYTES);
-}
-
 /// The warning the guest raises: its own glyph, named as `oag-mod.toml`'s `[icons]` declares it.
 fn portal_warning() -> Warning {
     Warning::Mod {
         side: WarningSide::Rear,
-        icon: oag_ext::ModIcon::new("portal-warning").unwrap(),
+        icon: oag_ext::ModName::new("portal-warning").unwrap(),
     }
 }
 

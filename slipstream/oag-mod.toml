@@ -20,22 +20,19 @@ default-enabled = false
 simulation = true
 api = 1
 memory_pages = 2
-# 8 slots of 7 bytes, the queue of 8, the slot in transit, the portal's two progresses and its
-# generation, and the approach (flying, ticks waited, units flown) (guest `Portal`).
-state_bytes = 80
+# The state's length is the guest's (`Portal`), which the module exports.
 
 [extension.rules]
 module = "ext/slipstream.wasm"
 
 # The portal's surface: the view through it, or its own animation (fx/portal.wgsl). The
 # tunnel a person flies through, over their own view (fx/wormhole.wgsl). The guest names them
-# by their place in name order (`SHADER_*`).
+# by key (`SHADER_*`).
 [shaders]
 portal = "fx/portal.wgsl"
 wormhole = "fx/wormhole.wgsl"
 
-# One portal per title, a tinted half disc (guest `Look::of` names them by their place in
-# this table's name order).
+# One portal per title, a tinted half disc (guest `Look::of` names them by key).
 [effects]
 portal_2048 = "fx/portal_2048.toml"
 portal_hd = "fx/portal_hd.toml"
@@ -44,7 +41,7 @@ portal_pulse = "fx/portal_pulse.toml"
 portal_pure = "fx/portal_pure.toml"
 
 # The mod's own sounds (sounds/, made by src/synth_sounds.py): a module's `play-mod-sound`
-# names one by its place in this table's name order (guest `SOUND_*`).
+# names one by key (guest `SOUND_*`).
 [sounds]
 portal-exit = "sounds/portal-exit.wav"
 portal-open = "sounds/portal-open.wav"
