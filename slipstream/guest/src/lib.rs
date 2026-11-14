@@ -242,8 +242,8 @@ enum Flight {
     /// Flying to the open portal, this share of the way there: the field of view alone.
     Approach(f32),
     /// At or past the entrance: ticks since it, `0.0..=LAST` out of the world and
-    /// `LAST + 2.0..` once it is out. No tick is `LAST + 1.0`, so a frame drawn between two
-    /// ticks never shows the far side of the exit before the camera is there.
+    /// `LAST + 1.0..` once it is out, the exit tick being `LAST + 1.0`. Every tick counts; the
+    /// tunnel (`fx/wormhole.wgsl`) holds the exit tick, a cut, at the count itself.
     Through(f32),
 }
 
@@ -255,7 +255,7 @@ impl Flight {
 
     /// The ticks since the entrance of a craft `after` ticks out of its transit.
     fn back(after: u8) -> Self {
-        Self::Through(LAST + 1.0 + f32::from(after))
+        Self::Through(LAST + f32::from(after))
     }
 
     /// The field of view's widening, degrees: built gently on the approach, up to the peak
@@ -264,8 +264,6 @@ impl Flight {
         match self {
             Self::Approach(share) => FOV_APPROACH * share * share,
             Self::Through(ticks) => {
-                // The tick `Through` leaves out is no tick of the curve's.
-                let ticks = if ticks > LAST { ticks - 1.0 } else { ticks };
                 let rise = FOV_APPROACH + (FOV_PEAK - FOV_APPROACH) * smooth(ticks / FOV_RISE);
                 let from = LAST - f32::from(FOV_FALL);
                 let over = f32::from(FOV_FALL) + f32::from(TAIL_TICKS);

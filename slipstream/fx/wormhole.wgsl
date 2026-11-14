@@ -29,7 +29,7 @@
 // The guest (guest/src/lib.rs, `Flight`) says where the flight is:
 //
 // - `phase`: ticks since the entrance, 0 to `transit` while the craft is out of the world and
-//   `transit + 2` on once it is out (no tick is `transit + 1`), while what is left of the
+//   `transit + 1` on once it is out (the exit tick is `transit + 1`), while what is left of the
 //   tunnel falls behind.
 // - `speed`: what the craft flies, units a tick: how fast the mouth falls behind, the far end
 //   moves back, and the wall runs past.
@@ -41,7 +41,8 @@
 // portal stands round the craft: there is no cut.
 //
 // What moves with the ticks reads `phase + input.between`, so it does not step at the tick on a
-// display faster than the simulation.
+// display faster than the simulation, except on the exit tick: the camera cuts there, so its
+// frames read `phase` alone (`camera_cut()`) and never show the far side early.
 
 const WH_TAU: f32 = 6.2831853;
 // The portal's radius, units: `RADIUS` of the guest and `size` of fx/portal_<title>.toml.
@@ -117,10 +118,10 @@ fn mod_fragment(input: ModInput) -> vec4<f32> {
     let hot = mix(tint, vec3<f32>(1.0), 0.8);
     let transit = param_transit();
     let speed = max(param_speed(), 0.05);
-    let ticks = max(param_phase() + input.between, 0.0);
+    let ticks = max(param_phase() + select(input.between, 0.0, camera_cut()), 0.0);
     // Ticks out of the world, and ticks since coming out.
     let gone = min(ticks, transit);
-    let since = max(ticks - transit - 1.0, 0.0);
+    let since = max(ticks - transit, 0.0);
     let is_out = ticks > transit + 0.5;
 
     // The tunnel's own axes, from the craft: across, up from the floor, ahead.
