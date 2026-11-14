@@ -261,12 +261,13 @@ fn the_tunnel_is_told_how_long_the_craft_has_been_through_and_how_fast_it_flies(
             "2048's colour"
         );
     }
-    // From the entrance the ticks count: 0 to the last tick out of the world, then on from two
-    // past it, so no frame between two ticks shows the far side early.
+    // From the entrance the ticks count with none left out: 0 to the last tick out of the
+    // world, then on from the exit tick, which cuts the camera (the tunnel reads `camera_cut()`
+    // so no frame of it shows the far side early).
     let phases: Vec<f32> = flown.iter().map(|(_, phase, _)| *phase).collect();
     let out_of_the_world: Vec<f32> = (0..TRANSIT_TICKS).map(f32::from).collect();
     let back: Vec<f32> = (1..=TAIL_TICKS)
-        .map(|n| LAST + 1.0 + f32::from(n))
+        .map(|n| LAST + f32::from(n))
         .collect();
     assert_eq!(phases, [out_of_the_world, back].concat());
     // 360 km/h is 100 units a second: the tunnel is flown at what the craft went in at, to
