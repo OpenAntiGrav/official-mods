@@ -40,6 +40,12 @@
 //!   snapshot per portal, High for the view every frame. Drawn only: the pick never reaches the
 //!   rules, so a race plays out the same at all three.
 //!
+//! - **Its races**: `wants_race` runs it in a Single Race or a Tournament leg with weapons on and
+//!   in no other race. With weapons off no pad hands the pickup out, and in the other modes
+//!   (Eliminator, Zone, Time Trial, Speed Lap, Head to Head, Detonator) it is not wanted at
+//!   all: the module is not loaded for that race, so it costs no tick, holds no state, shows
+//!   nothing and does not mark the race modded.
+//!
 //! The portal is the engine's mod effect at the road ahead (`fx/portal_<title>.toml`, a
 //! camera-facing sprite drawn by `fx/portal.wgsl`): all of its look is in `Look` and `fx/`,
 //! apart from the rules.
@@ -47,8 +53,8 @@
 
 use oag_ext::lap::{ahead, gap};
 use oag_ext::{
-    Craft, Distance, Event, Extension, Observation, Pickup, Reply, Rgba, Slot, SoundMode,
-    TICKS_PER_SECOND, ViewUpdate, WarningSide, title,
+    Craft, Distance, Event, Extension, Observation, Pickup, RaceInfo, RaceMode, Reply, Rgba, Slot,
+    SoundMode, TICKS_PER_SECOND, ViewUpdate, WarningSide, title,
 };
 
 // The numbers below are chosen, not measured.
@@ -426,6 +432,10 @@ fn arrive(reply: &mut Reply<'_>, craft: &Craft<'_>) {
 
 impl Extension for Slipstream {
     type State = Portal;
+
+    fn wants_race(race: &RaceInfo) -> bool {
+        race.weapons && matches!(race.mode, RaceMode::SingleRace | RaceMode::Tournament)
+    }
 
     fn tick(obs: &Observation<'_>, state: &mut Portal, reply: &mut Reply<'_>) {
         let look = Look::of(obs.title());

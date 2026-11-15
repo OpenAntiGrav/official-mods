@@ -1,6 +1,8 @@
 # Slipstream: a pickup that carries the craft through a portal to a point further along the
 # circuit. A simulation mod (docs/architecture/wasm-extensions/): it runs only in a build with
-# the `extensions` cargo feature, in races with weapons. Rules are in guest/src/lib.rs;
+# the `extensions` cargo feature, and only in a Single Race or a Tournament leg with weapons on:
+# the guest's `wants_race` answers that before the race is built, and in any other race the
+# module is not loaded at all. Rules are in guest/src/lib.rs;
 # ext/slipstream.wasm is `guest/build.sh`'s output, committed. Off until the player turns it on.
 
 toml-schema = { location = "https://oag.topaxi.com/mods/schemas/v1/mod.tosd", version = "1.0.0" }

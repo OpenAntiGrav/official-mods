@@ -6,6 +6,10 @@ a little slower. It adds no game content: the icons are original art (`icons/REA
 portal and the tunnel are drawn by the mod's own shaders (`fx/portal.wgsl`,
 `fx/wormhole.wgsl`) and the sounds are synthesised by `src/synth_sounds.py`.
 
+It runs in a Single Race or a Tournament leg with weapons on, and in no other race: with
+weapons off, and in Eliminator, Zone, Time Trial, Speed Lap, Head to Head and Detonator, it is
+not loaded at all (the guest's `wants_race` says so before the race is built).
+
 Off until you turn it on on the MODS page. It supports Wipeout Pulse (PSP and PS2 share one
 icon), Wipeout Pure, HD/Fury, Omega and 2048.
 

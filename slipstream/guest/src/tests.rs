@@ -266,9 +266,7 @@ fn the_tunnel_is_told_how_long_the_craft_has_been_through_and_how_fast_it_flies(
     // so no frame of it shows the far side early).
     let phases: Vec<f32> = flown.iter().map(|(_, phase, _)| *phase).collect();
     let out_of_the_world: Vec<f32> = (0..TRANSIT_TICKS).map(f32::from).collect();
-    let back: Vec<f32> = (1..=TAIL_TICKS)
-        .map(|n| LAST + f32::from(n))
-        .collect();
+    let back: Vec<f32> = (1..=TAIL_TICKS).map(|n| LAST + f32::from(n)).collect();
     assert_eq!(phases, [out_of_the_world, back].concat());
     // 360 km/h is 100 units a second: the tunnel is flown at what the craft went in at, to
     // the end, whatever it flies once it is out.
@@ -906,4 +904,49 @@ fn a_person_the_craft_stays_behind_or_that_is_already_behind_it_gets_none() {
     all.extend(commands_of(&mut race, 3935.0));
     assert_eq!(transits(&all), 1);
     assert_eq!(warnings(&all), [], "an AI craft has no HUD to warn");
+}
+
+fn a_race(mode: RaceMode, weapons: bool) -> RaceInfo {
+    RaceInfo {
+        title: title!("wipeout-pulse"),
+        class: oag_ext::channel_key("venom"),
+        mode,
+        weapons,
+        campaign: false,
+        people: 1,
+        crafts: 8,
+        options: [0; 4],
+    }
+}
+
+#[test]
+fn it_runs_only_in_a_single_race_or_a_tournament_leg_with_weapons() {
+    for mode in RaceMode::ALL {
+        for weapons in [false, true] {
+            let wanted = weapons && matches!(mode, RaceMode::SingleRace | RaceMode::Tournament);
+            assert_eq!(
+                oag_ext::test::wants_race::<Slipstream>(&a_race(*mode, weapons)),
+                wanted,
+                "{mode:?}, weapons {weapons}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_campaign_event_or_a_class_does_not_change_its_answer() {
+    for campaign in [false, true] {
+        for class in ["venom", "flash", "rapier", "phantom", ""] {
+            let race = RaceInfo {
+                campaign,
+                class: if class.is_empty() {
+                    0
+                } else {
+                    oag_ext::channel_key(class)
+                },
+                ..a_race(RaceMode::SingleRace, true)
+            };
+            assert!(oag_ext::test::wants_race::<Slipstream>(&race), "{class}");
+        }
+    }
 }
